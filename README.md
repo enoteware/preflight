@@ -154,9 +154,10 @@ npx @enoteware/preflight update
 
 - ✅ **Preflight Checks**: Validate CLI tools, env vars, and service connections
 - 🚀 **Dev Server Management**: Auto port detection, start/stop/restart
-- 📊 **Real-time Dashboard**: HTML dashboard with heartbeat indicators
+- 📊 **Real-time Dashboard**: HTML dashboard with heartbeat indicators (auto-refreshes every 10s)
 - 🔄 **Auto-updates**: Always get latest version via npx
 - 🎯 **VS Code Extension**: Real-time API health monitoring in your IDE (see [extension/README.md](extension/README.md))
+- 🔧 **Easy Customization**: Add your own service checks (see [docs/COMMON_SERVICES.md](docs/COMMON_SERVICES.md))
 
 ## Commands After Setup
 
@@ -164,11 +165,12 @@ npx @enoteware/preflight update
 # Run preflight check
 npm run preflight
 
-# Generate status JSON
+# Generate status JSON (for dashboard)
 npm run preflight:status
 
-# Start dashboard server
+# Start dashboard server (auto-refreshes every 10s)
 npm run preflight:dashboard
+# Then open: http://localhost:8080/preflight-dashboard.html
 
 # Dev server management
 npm run dev:start      # Start with auto port detection
@@ -176,6 +178,15 @@ npm run dev:restart    # Restart dev server
 npm run dev:stop       # Stop dev server
 npm run dev:status     # Check status
 ```
+
+### Dashboard Server
+
+The dashboard requires a server to be running. The `preflight:dashboard` command:
+- Starts an HTTP server on port 8080
+- **Auto-refreshes** status every 10 seconds (no need to manually run `preflight:status`)
+- Serves the dashboard HTML and status JSON
+
+**Note:** The dashboard server must be running for the dashboard to work. It will automatically regenerate `preflight-status.json` periodically.
 
 ## VS Code Extension
 
