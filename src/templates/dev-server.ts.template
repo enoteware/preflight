@@ -1,0 +1,215 @@
+/**
+ * TEMPLATE FILE - Do not edit directly
+ * This file is used by the setup script to generate project-specific files
+ * Variables: {{PROJECT_NAME}}, {{PORT}}, etc.
+ */
+
+#!/usr/bin/env tsx
+/**
+ * Dev server manager with automatic port detection
+ * 
+ * Usage:
+ *   npm run dev:start    - Start dev server on available port
+ *   npm run dev:restart   - Restart dev server
+ *   npm run dev:stop     - Stop dev server
+ */
+
+import { execSync, spawn } from 'child_process';
+import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'fs';
+import { join } from 'path';
+import { createServer } from 'net';
+
+const PID_FILE = join(process.cwd(), '.dev-server.pid');
+const PORT_FILE = join(process.cwd(), '.dev-server.port');
+
+interface ServerInfo {
+  pid: number;
+  port: number;
+}
+
+function isPortAvailable(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const server = createServer();
+    server.listen(port, () => {
+      server.once('close', () => resolve(true));
+      server.close();
+    });
+    server.on('error', () => resolve(false));
+  });
+}
+
+async function findAvailablePort(startPort: number = 6191): Promise<number> {
+  let port = startPort;
+  const maxPort = startPort + 100; // Check up to 100 ports ahead
+  
+  while (port < maxPort) {
+    if (await isPortAvailable(port)) {
+      return port;
+    }
+    port++;
+  }
+  
+  throw new Error(`No available port found in range ${startPort}-${maxPort}`);
+}
+
+function getServerInfo(): ServerInfo | null {
+  if (!existsSync(PID_FILE) || !existsSync(PORT_FILE)) {
+    return null;
+  }
+  
+  try {
+    const pid = parseInt(readFileSync(PID_FILE, 'utf-8').trim(), 10);
+    const port = parseInt(readFileSync(PORT_FILE, 'utf-8').trim(), 10);
+    
+    // Check if process is still running
+    try {
+      process.kill(pid, 0); // Signal 0 checks if process exists
+      return { pid, port };
+    } catch {
+      // Process doesn't exist, clean up files
+      if (existsSync(PID_FILE)) unlinkSync(PID_FILE);
+      if (existsSync(PORT_FILE)) unlinkSync(PORT_FILE);
+      return null;
+    }
+  } catch {
+    return null;
+  }
+}
+
+function isProcessRunning(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function stopServer(pid: number): void {
+  try {
+    // Try graceful shutdown first
+    process.kill(pid, 'SIGTERM');
+    
+    // Wait a bit, then force kill if needed
+    setTimeout(() => {
+      if (isProcessRunning(pid)) {
+        process.kill(pid, 'SIGKILL');
+      }
+    }, 2000);
+    
+    // Clean up files
+    if (existsSync(PID_FILE)) unlinkSync(PID_FILE);
+    if (existsSync(PORT_FILE)) unlinkSync(PORT_FILE);
+    
+    console.log(`✅ Stopped dev server (PID: ${pid})`);
+  } catch (error) {
+    console.error(`❌ Error stopping server: ${error}`);
+  }
+}
+
+async function startServer(port?: number): Promise<void> {
+  const existing = getServerInfo();
+  
+  if (existing) {
+    console.log(`⚠️  Dev server already running on port ${existing.port} (PID: ${existing.pid})`);
+    console.log(`   Run 'npm run dev:restart' to restart`);
+    return;
+  }
+  
+  // Find available port if not specified
+  const targetPort = port || await findAvailablePort(6191);
+  
+  console.log(`🚀 Starting dev server on port ${targetPort}...`);
+  
+  // Start Next.js dev server
+  const devServer = spawn('npx', ['next', 'dev', '-p', targetPort.toString()], {
+    stdio: 'inherit',
+    shell: true,
+    env: {
+      ...process.env,
+      PORT: targetPort.toString(),
+    },
+  });
+  
+  // Save PID and port
+  writeFileSync(PID_FILE, devServer.pid!.toString());
+  writeFileSync(PORT_FILE, targetPort.toString());
+  
+  // Handle cleanup on exit
+  const cleanup = () => {
+    if (existsSync(PID_FILE)) unlinkSync(PID_FILE);
+    if (existsSync(PORT_FILE)) unlinkSync(PORT_FILE);
+  };
+  
+  process.on('SIGINT', cleanup);
+  process.on('SIGTERM', cleanup);
+  
+  devServer.on('exit', (code) => {
+    cleanup();
+    if (code !== 0) {
+      console.error(`❌ Dev server exited with code ${code}`);
+      process.exit(code || 1);
+    }
+  });
+  
+  console.log(`✅ Dev server started on http://localhost:${targetPort}`);
+  console.log(`   PID: ${devServer.pid}`);
+  console.log(`   Press Ctrl+C to stop\n`);
+}
+
+async function restartServer(): Promise<void> {
+  const existing = getServerInfo();
+  
+  if (existing) {
+    console.log(`🔄 Restarting dev server...`);
+    stopServer(existing.pid);
+    
+    // Wait a moment for cleanup
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+  
+  await startServer();
+}
+
+async function main() {
+  const command = process.argv[2] || 'start';
+  
+  switch (command) {
+    case 'start':
+      await startServer();
+      break;
+      
+    case 'restart':
+      await restartServer();
+      break;
+      
+    case 'stop': {
+      const existing = getServerInfo();
+      if (existing) {
+        stopServer(existing.pid);
+      } else {
+        console.log('ℹ️  No dev server running');
+      }
+      break;
+    }
+    
+    case 'status': {
+      const existing = getServerInfo();
+      if (existing) {
+        console.log(`✅ Dev server running`);
+        console.log(`   Port: ${existing.port}`);
+        console.log(`   PID: ${existing.pid}`);
+        console.log(`   URL: http://localhost:${existing.port}`);
+      } else {
+        console.log('ℹ️  No dev server running');
+      }
+      break;
+    }
+    
+    default:
+      console.log('Usage: npm run dev:start | dev:restart | dev:stop | dev:status');
+      process.exit(1);
+  }
+}
+
+main().catch(console.error);

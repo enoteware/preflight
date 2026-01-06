@@ -1,0 +1,43 @@
+{
+  "name": "@enoteware/preflight",
+  "version": "1.0.0",
+  "description": "Repo-agnostic preflight checks and dev server management",
+  "type": "module",
+  "bin": {
+    "preflight-setup": "./bin/preflight-setup.js"
+  },
+  "main": "src/setup.ts",
+  "files": [
+    "src",
+    "templates",
+    "bin",
+    "README.md",
+    "package.json"
+  ],
+  "scripts": {
+    "setup": "tsx src/setup.ts",
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "preflight",
+    "dev-tools",
+    "validation",
+    "dev-server",
+    "development"
+  ],
+  "author": "enoteware",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/enoteware/preflight.git"
+  },
+  "dependencies": {
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.0.0"
+  }
+}
