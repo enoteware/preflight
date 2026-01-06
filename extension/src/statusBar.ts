@@ -46,19 +46,31 @@ export class PreflightStatusBar {
     // Always show dashboard button if status bar is enabled
     this.dashboardItem.show();
 
-    // Determine icon and color
+    // Determine icon and color based on status
     let icon = '$(check)';
     let color: vscode.ThemeColor | undefined;
+    let textColor: vscode.ThemeColor | undefined;
 
     if (summary.errors > 0) {
+      // Red for errors (something is down)
       icon = '$(error)';
       color = new vscode.ThemeColor('statusBarItem.errorBackground');
+      textColor = new vscode.ThemeColor('statusBarItem.errorForeground');
     } else if (summary.warnings > 0) {
+      // Orange/yellow for warnings (potential issues)
       icon = '$(warning)';
       color = new vscode.ThemeColor('statusBarItem.warningBackground');
-    } else if (summary.ok > 0) {
+      textColor = new vscode.ThemeColor('statusBarItem.warningForeground');
+    } else if (summary.ok > 0 && summary.total > 0 && summary.ok === summary.total) {
+      // Green for all passing (everything is up)
       icon = '$(check)';
-      color = undefined; // Default color
+      color = new vscode.ThemeColor('preflight.statusBar.successBackground');
+      textColor = new vscode.ThemeColor('preflight.statusBar.successForeground');
+    } else {
+      // Default/gray when no checks or partial status
+      icon = '$(circle-slash)';
+      color = undefined;
+      textColor = undefined;
     }
 
     // Build text
@@ -67,6 +79,7 @@ export class PreflightStatusBar {
     this.statusBarItem.text = text;
     this.statusBarItem.tooltip = this.buildTooltip(summary);
     this.statusBarItem.backgroundColor = color;
+    this.statusBarItem.color = textColor;
 
     this.statusBarItem.show();
   }

@@ -107,6 +107,24 @@
           "description": "Use quick mode (skip slow checks)"
         }
       }
+    },
+    "colors": {
+      "preflight.statusBar.successBackground": {
+        "description": "Background color for successful preflight checks in the status bar",
+        "defaults": {
+          "dark": "#30d158",
+          "light": "#30d158",
+          "highContrast": "#30d158"
+        }
+      },
+      "preflight.statusBar.successForeground": {
+        "description": "Foreground color for successful preflight checks in the status bar",
+        "defaults": {
+          "dark": "#ffffff",
+          "light": "#ffffff",
+          "highContrast": "#ffffff"
+        }
+      }
     }
   },
   "scripts": {
