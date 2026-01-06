@@ -47,6 +47,18 @@ export async function runPreflightChecks(): Promise<PreflightResults> {
     };
   }
 
+  // Check if tsx is available (try npx tsx --version first)
+  let tsxAvailable = false;
+  try {
+    await execAsync('npx tsx --version', { 
+      cwd: workspaceFolder.uri.fsPath,
+      timeout: 5000,
+    });
+    tsxAvailable = true;
+  } catch {
+    // tsx not available - will show helpful error below
+  }
+
   const command = `npx tsx "${scriptPath}" --json ${quickMode ? '--quick' : ''}`;
 
   try {
@@ -82,6 +94,8 @@ export async function runPreflightChecks(): Promise<PreflightResults> {
     let errors = 0;
 
     for (const summary of data.summaries || []) {
+      // Categorize: Service Connections go to services view,
+      // everything else (CLI Tools, Configuration, Environment Variables) goes to checks view
       const isService = summary.category.toLowerCase().includes('service') ||
         summary.category.toLowerCase().includes('connection');
 
@@ -118,15 +132,54 @@ export async function runPreflightChecks(): Promise<PreflightResults> {
 
     // Extract more helpful error message
     let errorMessage = error instanceof Error ? error.message : String(error);
+    let actionableSteps: string[] = [];
     
-    // Check for common error patterns
-    if (errorMessage.includes('ENOENT') || errorMessage.includes('not found')) {
-      errorMessage = `Preflight script not found. Make sure scripts/preflight-check.ts exists.\n\nRun 'npx @enoteware/preflight setup' to set up preflight checks.`;
+    // Check for common error patterns and provide actionable fixes
+    if (!tsxAvailable || errorMessage.includes('tsx') || errorMessage.includes('command not found')) {
+      errorMessage = `Preflight requires 'tsx' to run TypeScript files, but it's not available.`;
+      actionableSteps = [
+        'Install tsx globally: npm install -g tsx',
+        'Or install locally: npm install --save-dev tsx',
+        'Then try running the check again',
+      ];
+    } else if (errorMessage.includes('ENOENT') || errorMessage.includes('not found')) {
+      if (errorMessage.includes('preflight-check.ts')) {
+        errorMessage = `Preflight script not found at: scripts/preflight-check.ts`;
+        actionableSteps = [
+          'Run setup: npx @enoteware/preflight setup',
+          'Or manually create scripts/preflight-check.ts',
+        ];
+      } else {
+        errorMessage = `Required file not found: ${errorMessage}`;
+        actionableSteps = [
+          'Check that all preflight files are in place',
+          'Run: npx @enoteware/preflight setup to regenerate',
+        ];
+      }
     } else if (errorMessage.includes('timeout')) {
-      errorMessage = 'Preflight check timed out after 30 seconds. Some checks may be slow.';
-    } else if (errorMessage.includes('tsx')) {
-      errorMessage = `Failed to run preflight script. Make sure 'tsx' is available.\n\nInstall with: npm install -g tsx\n\nError: ${errorMessage}`;
+      errorMessage = 'Preflight check timed out after 30 seconds.';
+      actionableSteps = [
+        'Some checks may be slow (network requests, git fetch)',
+        'Try enabling quick mode in settings (skips slow checks)',
+        'Or check your network connection',
+      ];
+    } else if (errorMessage.includes('parse') || errorMessage.includes('JSON')) {
+      errorMessage = 'Failed to parse preflight check output.';
+      actionableSteps = [
+        'The check script may have errors',
+        'Try running manually: npx tsx scripts/preflight-check.ts',
+        'Check the Output panel for detailed error messages',
+      ];
+    } else {
+      actionableSteps = [
+        'Check the Output panel (View → Output → Extension Host) for details',
+        'Try running manually: npx tsx scripts/preflight-check.ts',
+      ];
     }
+
+    const fullErrorMessage = actionableSteps.length > 0
+      ? `${errorMessage}\n\nQuick Fix:\n${actionableSteps.map((s, i) => `${i + 1}. ${s}`).join('\n')}`
+      : errorMessage;
 
     // Return error result
     return {
@@ -134,7 +187,7 @@ export async function runPreflightChecks(): Promise<PreflightResults> {
         {
           status: 'error',
           message: 'Failed to run preflight checks',
-          details: errorMessage,
+          details: fullErrorMessage,
           helpUrl: 'https://github.com/enoteware/preflight',
           timestamp: Date.now(),
         },

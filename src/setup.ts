@@ -194,17 +194,29 @@ export function validateEnvVars(): CheckResult[] {
     `import { CheckResult } from './types';
 
 /**
+ * Service connection checks - these verify that services are reachable and responding.
+ * These checks only run if the corresponding environment variable is set.
+ * 
+ * To add a new service check:
+ * 1. Create a function that checks if the env var exists
+ * 2. If it exists, make an API call to verify connectivity
+ * 3. Return a CheckResult with status, message, latency, and details
+ */
+
+/**
  * Check GitHub API connection (requires GITHUB_TOKEN)
+ * This only checks connectivity - env var validation is done separately
  */
 export async function checkGitHubAPI(): Promise<CheckResult> {
   const token = process.env.GITHUB_TOKEN;
   const startTime = Date.now();
 
+  // Skip if env var not set (that's a configuration issue, not connectivity)
   if (!token) {
     return {
       status: 'warning',
-      message: 'GitHub API key not configured',
-      details: 'Set GITHUB_TOKEN environment variable to test GitHub API',
+      message: 'GitHub API: Not checked (GITHUB_TOKEN not set)',
+      details: 'Set GITHUB_TOKEN environment variable to enable this check',
       helpUrl: 'https://github.com/settings/tokens',
     };
   }
@@ -226,32 +238,40 @@ export async function checkGitHubAPI(): Promise<CheckResult> {
       const data = await response.json();
       return {
         status: 'ok',
-        message: 'GitHub API authenticated successfully',
-        details: \`Logged in as: \${data.login || 'authenticated user'}\`,
+        message: 'GitHub API: 200 OK',
+        details: \`Authenticated as: \${data.login || 'authenticated user'} (\${latency}ms)\`,
         latency,
         helpUrl: 'https://github.com/settings/tokens',
       };
     } else if (response.status === 401) {
       return {
         status: 'error',
-        message: 'GitHub API authentication failed',
-        details: 'Invalid or expired GITHUB_TOKEN',
+        message: 'GitHub API: Authentication failed',
+        details: \`Invalid or expired token (HTTP \${response.status}, \${latency}ms)\`,
         latency,
         helpUrl: 'https://github.com/settings/tokens',
       };
     } else {
       return {
         status: 'warning',
-        message: \`GitHub API returned unexpected status: \${response.status}\`,
-        details: response.statusText,
+        message: \`GitHub API: Unexpected status \${response.status}\`,
+        details: \`\${response.statusText} (\${latency}ms)\`,
         latency,
       };
     }
   } catch (error) {
     const latency = Date.now() - startTime;
+    if (error instanceof Error && error.name === 'TimeoutError') {
+      return {
+        status: 'error',
+        message: 'GitHub API: Timeout',
+        details: \`Request timed out after 5s\`,
+        latency,
+      };
+    }
     return {
       status: 'error',
-      message: 'GitHub API check failed',
+      message: 'GitHub API: Connection failed',
       details: error instanceof Error ? error.message : String(error),
       latency,
     };
@@ -260,6 +280,7 @@ export async function checkGitHubAPI(): Promise<CheckResult> {
 
 /**
  * Check a public API endpoint (no auth required)
+ * This verifies general internet connectivity
  */
 export async function checkPublicAPI(): Promise<CheckResult> {
   const startTime = Date.now();
@@ -274,24 +295,32 @@ export async function checkPublicAPI(): Promise<CheckResult> {
     if (response.ok) {
       return {
         status: 'ok',
-        message: 'Public API (httpbin.org) is reachable',
-        details: \`Status: \${response.status}\`,
+        message: 'Public API: 200 OK',
+        details: \`httpbin.org is reachable (\${latency}ms)\`,
         latency,
         helpUrl: 'https://httpbin.org',
       };
     } else {
       return {
         status: 'warning',
-        message: 'Public API returned non-OK status',
-        details: \`Status: \${response.status}\`,
+        message: \`Public API: Status \${response.status}\`,
+        details: \`\${response.statusText} (\${latency}ms)\`,
         latency,
       };
     }
   } catch (error) {
     const latency = Date.now() - startTime;
+    if (error instanceof Error && error.name === 'TimeoutError') {
+      return {
+        status: 'error',
+        message: 'Public API: Timeout',
+        details: \`Request timed out after 5s\`,
+        latency,
+      };
+    }
     return {
       status: 'error',
-      message: 'Public API check failed',
+      message: 'Public API: Connection failed',
       details: error instanceof Error ? error.message : String(error),
       latency,
     };
@@ -299,11 +328,14 @@ export async function checkPublicAPI(): Promise<CheckResult> {
 }
 
 // Add more service checks as needed:
-// - checkOpenAI() - requires OPENAI_API_KEY
-// - checkResend() - requires RESEND_API_KEY
-// - checkStackAuth() - requires STACK_* keys
-// - checkVercel() - requires VERCEL_TOKEN
-// - checkNeonDatabase() - requires DATABASE_URL
+// Example pattern:
+// export async function checkOpenAI(): Promise<CheckResult> {
+//   const apiKey = process.env.OPENAI_API_KEY;
+//   if (!apiKey) {
+//     return { status: 'warning', message: 'OpenAI API: Not checked (OPENAI_API_KEY not set)' };
+//   }
+//   // Make API call to verify connectivity...
+// }
 `
   );
   
@@ -337,11 +369,13 @@ async function runChecks(quickMode = false): Promise<CheckSummary[]> {
   ];
   summaries.push({ category: 'CLI Tools', results: cliResults });
   
-  // Environment Variables
+  // Configuration: Environment Variables
+  // These checks only verify if env vars are SET, not if services are reachable
   const envResults = validateEnvVars();
-  summaries.push({ category: 'Environment Variables', results: envResults });
+  summaries.push({ category: 'Configuration', results: envResults });
   
-  // Service Connections
+  // Service Connections: Connectivity checks
+  // These verify services are reachable and responding (only if env vars are set)
   const serviceResults: CheckResult[] = [];
   
   // Always run public API check (fast, no auth required)
@@ -875,20 +909,370 @@ function createVSCodeConfig(project: ProjectInfo) {
   console.log('✅ Created VSCode configuration');
 }
 
-function main() {
-  console.log('🚀 Setting up preflight checks...\n');
+function validatePreconditions(project: ProjectInfo): void {
+  // Check Node.js version
+  const nodeVersion = process.version;
+  const majorVersion = parseInt(nodeVersion.slice(1).split('.')[0], 10);
+  if (majorVersion < 18) {
+    throw new Error(
+      `Preflight requires Node.js 18 or higher. You have ${nodeVersion}.\n` +
+      'Please upgrade Node.js: https://nodejs.org/'
+    );
+  }
+
+  // Check write permissions
+  const scriptsDir = join(project.rootDir, 'scripts');
+  try {
+    mkdirSync(scriptsDir, { recursive: true });
+  } catch (error) {
+    throw new Error(
+      `Cannot create scripts directory: ${scriptsDir}\n` +
+      'Check that you have write permissions in the project directory.'
+    );
+  }
+
+  // Check if package.json is writable (if it exists)
+  if (project.hasPackageJson) {
+    const packageJsonPath = join(project.rootDir, 'package.json');
+    try {
+      const existing = readFileSync(packageJsonPath, 'utf-8');
+      JSON.parse(existing); // Validate it's valid JSON
+    } catch (error) {
+      throw new Error(
+        `Cannot read or parse package.json: ${packageJsonPath}\n` +
+        'Please fix any JSON syntax errors before running setup.'
+      );
+    }
+  }
+}
+
+async function validateSetup(project: ProjectInfo): Promise<boolean> {
+  console.log('\n🔍 Validating setup...\n');
   
-  const project = detectProject();
+  let allGood = true;
   
-  console.log(`📦 Project Type: ${project.type}`);
-  console.log(`📦 Package Manager: ${project.packageManager}`);
-  console.log(`📦 Root: ${project.rootDir}\n`);
+  // Check if required files exist
+  const requiredFiles = [
+    join(project.rootDir, 'scripts', 'preflight-check.ts'),
+    join(project.rootDir, 'scripts', 'preflight-validators', 'types.ts'),
+    join(project.rootDir, 'scripts', 'preflight-validators', 'cli.ts'),
+    join(project.rootDir, 'scripts', 'preflight-validators', 'env.ts'),
+    join(project.rootDir, 'scripts', 'preflight-validators', 'services.ts'),
+  ];
   
-  if (!project.hasPackageJson) {
-    console.log('⚠️  No package.json found. Creating basic structure...');
+  for (const file of requiredFiles) {
+    if (existsSync(file)) {
+      console.log(`  ✅ ${file.replace(project.rootDir + '/', '')}`);
+    } else {
+      console.log(`  ❌ ${file.replace(project.rootDir + '/', '')} - MISSING`);
+      allGood = false;
+    }
   }
   
-  createPreflightStructure(project);
+  // Check if tsx is available
+  try {
+    execSync('npx tsx --version', { stdio: 'ignore', timeout: 5000 });
+    console.log('  ✅ tsx is available');
+  } catch {
+    console.log('  ⚠️  tsx not found (will be installed with npm install)');
+  }
+  
+  // Check if dotenv is in package.json (if package.json exists)
+  if (project.hasPackageJson) {
+    try {
+      const packageJson = JSON.parse(readFileSync(join(project.rootDir, 'package.json'), 'utf-8'));
+      const deps = { ...packageJson.dependencies, ...packageJson.devDependencies };
+      if (deps.tsx && deps.dotenv) {
+        console.log('  ✅ tsx and dotenv in package.json');
+      } else {
+        console.log('  ⚠️  Run "npm install" to install tsx and dotenv');
+        allGood = false;
+      }
+    } catch {
+      // Ignore
+    }
+  }
+  
+  return allGood;
+}
+
+function updateExistingInstallation(project: ProjectInfo): boolean {
+  const preflightCheckPath = join(project.rootDir, 'scripts', 'preflight-check.ts');
+  const servicesPath = join(project.rootDir, 'scripts', 'preflight-validators', 'services.ts');
+  
+  if (!existsSync(preflightCheckPath)) {
+    console.log('❌ No existing Preflight installation found.');
+    console.log('   Run without --update flag to do a fresh setup.\n');
+    return false;
+  }
+  
+  console.log('🔄 Updating existing Preflight installation...\n');
+  
+  // Check if already updated (has "Configuration" category)
+  const existingCheck = readFileSync(preflightCheckPath, 'utf-8');
+  if (existingCheck.includes("category: 'Configuration'")) {
+    console.log('✅ Your installation is already up to date!\n');
+    return true;
+  }
+  
+  // Update services.ts if it exists
+  if (existsSync(servicesPath)) {
+    console.log('📝 Updating services.ts...');
+    // Regenerate services.ts with new structure
+    const scriptsDir = join(project.rootDir, 'scripts', 'preflight-validators');
+    mkdirSync(scriptsDir, { recursive: true });
+    
+    // Read the existing services.ts to preserve custom checks
+    const existingServices = readFileSync(servicesPath, 'utf-8');
+    
+    // Check if it needs updating (old pattern: returns warning when token missing)
+    if (existingServices.includes("status: 'warning'") && existingServices.includes('not configured')) {
+      // Backup existing file
+      const backupPath = join(scriptsDir, 'services.ts.backup');
+      writeFileSync(backupPath, existingServices);
+      console.log(`   💾 Backup saved to: ${backupPath.replace(project.rootDir + '/', '')}`);
+      
+      // Regenerate with new structure
+      // Note: This will overwrite custom checks, but we have a backup
+      const newServicesContent = getServicesTemplate();
+      writeFileSync(servicesPath, newServicesContent);
+      console.log('   ✅ Updated services.ts (old version backed up)');
+      console.log('   ⚠️  If you had custom service checks, restore them from the backup\n');
+    } else {
+      console.log('   ℹ️  services.ts appears to already be updated\n');
+    }
+  }
+  
+  // Update preflight-check.ts category name
+  console.log('📝 Updating preflight-check.ts...');
+  let updatedCheck = existingCheck;
+  
+  // Replace old category name
+  updatedCheck = updatedCheck.replace(
+    /category: 'Environment Variables'/g,
+    "category: 'Configuration'"
+  );
+  
+  // Add comment if not present
+  if (!updatedCheck.includes('// Configuration: Environment Variables')) {
+    updatedCheck = updatedCheck.replace(
+      /\/\/ Environment Variables/,
+      '// Configuration: Environment Variables\n  // These checks only verify if env vars are SET, not if services are reachable'
+    );
+  }
+  
+  // Add comment for Service Connections if not present
+  if (!updatedCheck.includes('// Service Connections: Connectivity checks')) {
+    updatedCheck = updatedCheck.replace(
+      /\/\/ Service Connections/,
+      '// Service Connections: Connectivity checks\n  // These verify services are reachable and responding (only if env vars are set)'
+    );
+  }
+  
+  // Backup existing file
+  const backupPath = join(project.rootDir, 'scripts', 'preflight-check.ts.backup');
+  writeFileSync(backupPath, existingCheck);
+  writeFileSync(preflightCheckPath, updatedCheck);
+  
+  console.log(`   💾 Backup saved to: ${backupPath.replace(project.rootDir + '/', '')}`);
+  console.log('   ✅ Updated preflight-check.ts\n');
+  
+  return true;
+}
+
+function getServicesTemplate(): string {
+  // Return the new services.ts template (same as in createPreflightStructure)
+  return `import { CheckResult } from './types';
+
+/**
+ * Service connection checks - these verify that services are reachable and responding.
+ * These checks only run if the corresponding environment variable is set.
+ * 
+ * To add a new service check:
+ * 1. Create a function that checks if the env var exists
+ * 2. If it exists, make an API call to verify connectivity
+ * 3. Return a CheckResult with status, message, latency, and details
+ */
+
+/**
+ * Check GitHub API connection (requires GITHUB_TOKEN)
+ * This only checks connectivity - env var validation is done separately
+ */
+export async function checkGitHubAPI(): Promise<CheckResult> {
+  const token = process.env.GITHUB_TOKEN;
+  const startTime = Date.now();
+
+  // Skip if env var not set (that's a configuration issue, not connectivity)
+  if (!token) {
+    return {
+      status: 'warning',
+      message: 'GitHub API: Not checked (GITHUB_TOKEN not set)',
+      details: 'Set GITHUB_TOKEN environment variable to enable this check',
+      helpUrl: 'https://github.com/settings/tokens',
+    };
+  }
+
+  try {
+    const response = await fetch('https://api.github.com/user', {
+      method: 'GET',
+      headers: {
+        'Authorization': \`Bearer \${token}\`,
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'preflight-check',
+      },
+      signal: AbortSignal.timeout(5000),
+    });
+
+    const latency = Date.now() - startTime;
+
+    if (response.ok) {
+      const data = await response.json();
+      return {
+        status: 'ok',
+        message: 'GitHub API: 200 OK',
+        details: \`Authenticated as: \${data.login || 'authenticated user'} (\${latency}ms)\`,
+        latency,
+        helpUrl: 'https://github.com/settings/tokens',
+      };
+    } else if (response.status === 401) {
+      return {
+        status: 'error',
+        message: 'GitHub API: Authentication failed',
+        details: \`Invalid or expired token (HTTP \${response.status}, \${latency}ms)\`,
+        latency,
+        helpUrl: 'https://github.com/settings/tokens',
+      };
+    } else {
+      return {
+        status: 'warning',
+        message: \`GitHub API: Unexpected status \${response.status}\`,
+        details: \`\${response.statusText} (\${latency}ms)\`,
+        latency,
+      };
+    }
+  } catch (error) {
+    const latency = Date.now() - startTime;
+    if (error instanceof Error && error.name === 'TimeoutError') {
+      return {
+        status: 'error',
+        message: 'GitHub API: Timeout',
+        details: \`Request timed out after 5s\`,
+        latency,
+      };
+    }
+    return {
+      status: 'error',
+      message: 'GitHub API: Connection failed',
+      details: error instanceof Error ? error.message : String(error),
+      latency,
+    };
+  }
+}
+
+/**
+ * Check a public API endpoint (no auth required)
+ * This verifies general internet connectivity
+ */
+export async function checkPublicAPI(): Promise<CheckResult> {
+  const startTime = Date.now();
+  try {
+    const response = await fetch('https://httpbin.org/json', {
+      method: 'GET',
+      signal: AbortSignal.timeout(5000),
+    });
+
+    const latency = Date.now() - startTime;
+
+    if (response.ok) {
+      return {
+        status: 'ok',
+        message: 'Public API: 200 OK',
+        details: \`httpbin.org is reachable (\${latency}ms)\`,
+        latency,
+        helpUrl: 'https://httpbin.org',
+      };
+    } else {
+      return {
+        status: 'warning',
+        message: \`Public API: Status \${response.status}\`,
+        details: \`\${response.statusText} (\${latency}ms)\`,
+        latency,
+      };
+    }
+  } catch (error) {
+    const latency = Date.now() - startTime;
+    if (error instanceof Error && error.name === 'TimeoutError') {
+      return {
+        status: 'error',
+        message: 'Public API: Timeout',
+        details: \`Request timed out after 5s\`,
+        latency,
+      };
+    }
+    return {
+      status: 'error',
+      message: 'Public API: Connection failed',
+      details: error instanceof Error ? error.message : String(error),
+      latency,
+    };
+  }
+}
+
+// Add more service checks as needed:
+// Example pattern:
+// export async function checkOpenAI(): Promise<CheckResult> {
+//   const apiKey = process.env.OPENAI_API_KEY;
+//   if (!apiKey) {
+//     return { status: 'warning', message: 'OpenAI API: Not checked (OPENAI_API_KEY not set)' };
+//   }
+//   // Make API call to verify connectivity...
+// }
+`;
+}
+
+function main() {
+  const args = process.argv.slice(2);
+  const isUpdate = args.includes('--update') || args.includes('update');
+  
+  if (isUpdate) {
+    const project = detectProject();
+    const updated = updateExistingInstallation(project);
+    if (updated) {
+      console.log('✅ Update complete!');
+      console.log('\n📋 What changed:');
+      console.log('   • Category "Environment Variables" → "Configuration"');
+      console.log('   • Service checks now skip if env vars are missing');
+      console.log('   • Clearer separation between config and connectivity issues');
+      console.log('\n💡 Next steps:');
+      console.log('   • Review your backup files (if any were created)');
+      console.log('   • Run: npm run preflight (to test)');
+      console.log('   • Check the VS Code extension to see the new categories\n');
+    }
+    return;
+  }
+  
+  console.log('🚀 Setting up preflight checks...\n');
+  
+  try {
+    const project = detectProject();
+    
+    console.log(`📦 Project Type: ${project.type}`);
+    console.log(`📦 Package Manager: ${project.packageManager}`);
+    console.log(`📦 Root: ${project.rootDir}\n`);
+    
+    // Validate preconditions
+    try {
+      validatePreconditions(project);
+    } catch (error) {
+      console.error('❌ Setup failed:', error instanceof Error ? error.message : String(error));
+      process.exit(1);
+    }
+    
+    if (!project.hasPackageJson) {
+      console.log('⚠️  No package.json found. Creating basic structure...');
+    }
+    
+    createPreflightStructure(project);
   
   // Create dashboard server script
   const dashboardServerPath = join(project.rootDir, 'scripts', 'serve-dashboard.ts');
@@ -897,15 +1281,20 @@ function main() {
       dashboardServerPath,
       `#!/usr/bin/env tsx
 /**
- * Simple HTTP server for preflight dashboard
+ * HTTP server for preflight dashboard with auto-refresh
+ * Periodically runs checks and regenerates preflight-status.json
  */
 
 import { createServer } from 'http';
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, writeFileSync } from 'fs';
 import { join, extname } from 'path';
+import { execSync } from 'child_process';
 
 const PORT = process.env.PORT || 8080;
+const REFRESH_INTERVAL = parseInt(process.env.REFRESH_INTERVAL || '10', 10) * 1000; // Default 10 seconds
 const ROOT = process.cwd();
+const CHECK_SCRIPT = join(ROOT, 'scripts', 'preflight-check.ts');
+const STATUS_FILE = join(ROOT, 'preflight-status.json');
 
 const MIME_TYPES: Record<string, string> = {
   '.html': 'text/html',
@@ -913,6 +1302,39 @@ const MIME_TYPES: Record<string, string> = {
   '.json': 'application/json',
   '.css': 'text/css',
 };
+
+// Run preflight checks and update status file
+async function runChecks() {
+  if (!existsSync(CHECK_SCRIPT)) {
+    return;
+  }
+  
+  try {
+    const output = execSync(\`npx tsx "\${CHECK_SCRIPT}" --json --quick\`, {
+      cwd: ROOT,
+      encoding: 'utf-8',
+      timeout: 30000,
+    });
+    
+    // Write to status file
+    writeFileSync(STATUS_FILE, output);
+    console.log(\`[Dashboard] Status updated at \${new Date().toLocaleTimeString()}\`);
+  } catch (error) {
+    console.error('[Dashboard] Failed to run checks:', error instanceof Error ? error.message : String(error));
+  }
+}
+
+// Run initial check
+runChecks();
+
+// Set up periodic refresh
+const refreshInterval = setInterval(runChecks, REFRESH_INTERVAL);
+
+// Cleanup on exit
+process.on('SIGINT', () => {
+  clearInterval(refreshInterval);
+  process.exit(0);
+});
 
 const server = createServer((req, res) => {
   let filePath = join(ROOT, req.url === '/' ? 'preflight-dashboard.html' : req.url!);
@@ -950,19 +1372,37 @@ server.listen(PORT, () => {
   console.log(\`\\n🚀 Preflight Dashboard Server\`);
   console.log(\`   URL: http://localhost:\${PORT}\`);
   console.log(\`   Dashboard: http://localhost:\${PORT}/preflight-dashboard.html\`);
+  console.log(\`   Auto-refresh: Every \${REFRESH_INTERVAL / 1000} seconds\`);
   console.log(\`\\n   Press Ctrl+C to stop\\n\`);
 });
 `
     );
   }
   
-  console.log('\n✅ Preflight checks setup complete!');
-  console.log('\n📋 Next steps:');
-  console.log('   1. Run: npm install (to install tsx and dotenv)');
-  console.log('   2. Run: npm run preflight (to test)');
-  console.log('   3. Run: npm run preflight:status (to generate status JSON)');
-  console.log('   4. Run: npm run preflight:dashboard (to start dashboard server)');
-  console.log('   5. Open: http://localhost:8080 (in browser)');
+    // Validate setup
+    const setupValid = await validateSetup(project);
+    
+    console.log('\n✅ Preflight checks setup complete!');
+    
+    if (!setupValid) {
+      console.log('\n⚠️  Some validation checks failed. Please review the output above.');
+    }
+    
+    console.log('\n📋 Next steps:');
+    console.log('   [ ] 1. Run: npm install (to install tsx and dotenv)');
+    console.log('   [ ] 2. Run: npm run preflight (to test checks)');
+    console.log('   [ ] 3. Run: npm run preflight:status (to generate status JSON)');
+    console.log('   [ ] 4. Run: npm run preflight:dashboard (to start dashboard server)');
+    console.log('   [ ] 5. Open: http://localhost:8080 (in browser)');
+    console.log('\n💡 Tip: Customize env.ts and services.ts in scripts/preflight-validators/ for your project');
+  } catch (error) {
+    console.error('\n❌ Setup failed:', error instanceof Error ? error.message : String(error));
+    console.error('\nIf you need help, check: https://github.com/enoteware/preflight');
+    process.exit(1);
+  }
 }
 
-main().catch(console.error);
+main().catch((error) => {
+  console.error('Fatal error:', error);
+  process.exit(1);
+});

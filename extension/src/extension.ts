@@ -13,6 +13,7 @@ let statusBar: PreflightStatusBar;
 let checksProvider: PreflightTreeDataProvider;
 let servicesProvider: PreflightTreeDataProvider;
 let refreshTimer: NodeJS.Timeout | undefined;
+let refreshInProgress = false;
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('Preflight Status extension activated');
@@ -96,6 +97,12 @@ function startAutoRefresh(intervalSeconds: number) {
 }
 
 async function refreshChecks() {
+  // Prevent overlapping refresh calls
+  if (refreshInProgress) {
+    return;
+  }
+  
+  refreshInProgress = true;
   try {
     const results = await runPreflightChecks();
 
@@ -122,6 +129,8 @@ async function refreshChecks() {
     console.error('Error refreshing checks:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     vscode.window.showErrorMessage(`Preflight check failed: ${errorMessage}`);
+  } finally {
+    refreshInProgress = false;
   }
 }
 

@@ -304,7 +304,11 @@ async function runChecks(quickMode = false): Promise<CheckSummary[]> {
     summaries.push({ category: 'Repository', results: [gitUpdateResult] });
   }
 
-  // Service Connections
+  // Configuration: Environment Variables
+  // Note: This demo doesn't include env var checks, but generated projects will
+  // summaries.push({ category: 'Configuration', results: validateEnvVars() });
+
+  // Service Connections: Connectivity checks
   const serviceResults: CheckResult[] = [];
   
   // Always run API checks (they're fast and demonstrate the extension)

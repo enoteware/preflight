@@ -4,6 +4,8 @@ Repo-agnostic preflight checks and dev server management toolkit.
 
 **Repository:** https://github.com/enoteware/preflight
 
+> **🔄 Updating from v1.0?** See [MIGRATION.md](MIGRATION.md) or run `npx tsx src/setup.ts --update` to automatically update your existing installation.
+
 ## For AI Agents (Claude/Cursor)
 
 **IMPORTANT:** When a user requests preflight setup, you must:
@@ -106,6 +108,35 @@ npm install -g @enoteware/preflight
 npx @enoteware/preflight setup
 ```
 
+## Updating Existing Installations
+
+If you set up Preflight before version 1.1.0, you'll need to update to the new structure that separates **Configuration** checks from **Service Connections**.
+
+### Quick Update
+
+```bash
+# Automatic update (recommended)
+npx tsx src/setup.ts --update
+
+# Or if using the npm package
+npx @enoteware/preflight update
+```
+
+This will:
+- Update your `preflight-check.ts` to use the new "Configuration" category
+- Update your `services.ts` to skip checks when env vars are missing
+- Create backups of your existing files (`.backup` extension)
+- Preserve your custom env vars and service checks
+
+### Manual Update
+
+See [MIGRATION.md](MIGRATION.md) for detailed migration instructions.
+
+**What changed:**
+- ✅ Clear separation: "Missing env var" vs "Service unreachable"
+- ✅ Faster feedback: Configuration checks are instant (no network calls)
+- ✅ Better error messages: Know exactly what to fix
+
 ## Usage
 
 ```bash
@@ -114,6 +145,9 @@ npx @enoteware/preflight setup
 
 # Or from any directory
 npx @enoteware/preflight setup /path/to/project
+
+# Update existing installation (v1.1.0+)
+npx @enoteware/preflight update
 ```
 
 ## Features
