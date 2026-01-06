@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { PreflightTreeDataProvider, CheckTreeItem } from './treeDataProvider';
 import { PreflightStatusBar } from './statusBar';
 import { runPreflightChecks } from './checkRunner';
+import { DashboardProvider } from './dashboardProvider';
 
 let statusBar: PreflightStatusBar;
 let checksProvider: PreflightTreeDataProvider;
@@ -43,14 +44,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand('preflight.openDashboard', () => {
-      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-      if (workspaceFolder) {
-        const dashboardPath = vscode.Uri.joinPath(
-          workspaceFolder.uri,
-          'preflight-dashboard.html'
-        );
-        vscode.env.openExternal(vscode.Uri.parse(`file://${dashboardPath.fsPath}`));
-      }
+      DashboardProvider.createOrShow(context);
     })
   );
 

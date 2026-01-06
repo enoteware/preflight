@@ -6,6 +6,7 @@
 
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { execSync } from 'child_process';
 
 // Load environment variables from .env.local if it exists
 // Simple parser (no dependency on dotenv package)
@@ -176,7 +177,6 @@ function checkNodeVersion(): CheckResult {
 // Check npm
 function checkNpm(): CheckResult {
   try {
-    const { execSync } = require('child_process');
     const version = execSync('npm --version', { encoding: 'utf-8' }).trim();
     return {
       status: 'ok',
@@ -192,6 +192,102 @@ function checkNpm(): CheckResult {
   }
 }
 
+// Check if git repo is up to date with remote
+async function checkGitUpdates(): Promise<CheckResult> {
+  try {
+    // Check if we're in a git repo
+    const gitDir = join(process.cwd(), '.git');
+    if (!existsSync(gitDir)) {
+      return {
+        status: 'warning',
+        message: 'Not a git repository',
+        details: 'This check only works in git repositories',
+      };
+    }
+
+    // Fetch latest from remote (non-blocking, quiet)
+    try {
+      execSync('git fetch origin --quiet', { 
+        encoding: 'utf-8',
+        stdio: 'ignore',
+        timeout: 10000,
+      });
+    } catch (fetchError) {
+      // If fetch fails, continue anyway - might be offline or no remote
+    }
+
+    // Check if local branch is behind remote
+    const currentBranch = execSync('git branch --show-current', { encoding: 'utf-8' }).trim();
+    const remoteBranch = `origin/${currentBranch}`;
+    
+    // Check if remote branch exists
+    try {
+      execSync(`git rev-parse --verify ${remoteBranch}`, { 
+        encoding: 'utf-8',
+        stdio: 'ignore',
+      });
+    } catch (error) {
+      return {
+        status: 'warning',
+        message: 'No remote branch found',
+        details: `Remote branch ${remoteBranch} does not exist`,
+      };
+    }
+
+    // Get commit counts
+    const localCommit = execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
+    const remoteCommit = execSync(`git rev-parse ${remoteBranch}`, { encoding: 'utf-8' }).trim();
+    
+    if (localCommit === remoteCommit) {
+      return {
+        status: 'ok',
+        message: 'Repository is up to date',
+        details: `Local branch matches ${remoteBranch}`,
+      };
+    }
+
+    // Check how many commits behind
+    const behindCount = execSync(
+      `git rev-list --count HEAD..${remoteBranch}`,
+      { encoding: 'utf-8' }
+    ).trim();
+
+    if (parseInt(behindCount) > 0) {
+      return {
+        status: 'warning',
+        message: `Repository is ${behindCount} commit(s) behind remote`,
+        details: `Run 'git pull' to update to latest version`,
+        helpUrl: 'https://git-scm.com/docs/git-pull',
+      };
+    }
+
+    // Check if ahead (shouldn't happen in normal flow, but good to know)
+    const aheadCount = execSync(
+      `git rev-list --count ${remoteBranch}..HEAD`,
+      { encoding: 'utf-8' }
+    ).trim();
+
+    if (parseInt(aheadCount) > 0) {
+      return {
+        status: 'ok',
+        message: `Repository is ${aheadCount} commit(s) ahead of remote`,
+        details: 'Local changes not yet pushed',
+      };
+    }
+
+    return {
+      status: 'ok',
+      message: 'Repository is up to date',
+    };
+  } catch (error) {
+    return {
+      status: 'warning',
+      message: 'Git update check failed',
+      details: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
 async function runChecks(quickMode = false): Promise<CheckSummary[]> {
   const summaries: CheckSummary[] = [];
 
@@ -201,6 +297,12 @@ async function runChecks(quickMode = false): Promise<CheckSummary[]> {
     checkNpm(),
   ];
   summaries.push({ category: 'CLI Tools', results: cliResults });
+
+  // Repository Status
+  if (!quickMode) {
+    const gitUpdateResult = await checkGitUpdates();
+    summaries.push({ category: 'Repository', results: [gitUpdateResult] });
+  }
 
   // Service Connections
   const serviceResults: CheckResult[] = [];

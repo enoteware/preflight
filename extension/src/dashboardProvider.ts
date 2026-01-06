@@ -1,4 +1,186 @@
-<!DOCTYPE html>
+/**
+ * Dashboard Webview Provider
+ * Displays the preflight dashboard in a VS Code webview panel
+ */
+
+import * as vscode from 'vscode';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import { join } from 'path';
+import { existsSync } from 'fs';
+
+export class DashboardProvider {
+  private static currentPanel: vscode.WebviewPanel | undefined;
+
+  public static createOrShow(context: vscode.ExtensionContext) {
+    const column = vscode.window.activeTextEditor
+      ? vscode.window.activeTextEditor.viewColumn
+      : undefined;
+
+    // If we already have a panel, show it
+    if (DashboardProvider.currentPanel) {
+      DashboardProvider.currentPanel.reveal(column);
+      return;
+    }
+
+    // Otherwise, create a new panel
+    const panel = vscode.window.createWebviewPanel(
+      'preflightDashboard',
+      'Preflight Dashboard',
+      column || vscode.ViewColumn.One,
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        localResourceRoots: [
+          vscode.Uri.joinPath(context.extensionUri, 'resources'),
+        ],
+      }
+    );
+
+    DashboardProvider.currentPanel = panel;
+
+    // Set initial content
+    DashboardProvider.updateContent(panel, context);
+
+    // Handle panel disposal
+    panel.onDidDispose(
+      () => {
+        DashboardProvider.currentPanel = undefined;
+      },
+      null,
+      context.subscriptions
+    );
+
+    // Handle messages from webview
+    panel.webview.onDidReceiveMessage(
+      async (message) => {
+        switch (message.command) {
+          case 'refresh':
+            await DashboardProvider.updateContent(panel, context);
+            break;
+        }
+      },
+      null,
+      context.subscriptions
+    );
+  }
+
+  private static async updateContent(
+    panel: vscode.WebviewPanel,
+    context: vscode.ExtensionContext
+  ) {
+    // Get the HTML content
+    const html = DashboardProvider.getWebviewContent(panel.webview, context);
+
+    // Run checks and get JSON output directly to preserve categories
+    try {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder) {
+        throw new Error('No workspace folder open');
+      }
+
+      const execAsync = promisify(exec);
+
+      const config = vscode.workspace.getConfiguration('preflight');
+      const quickMode = config.get<boolean>('quickMode', true);
+
+      const scriptPath = join(workspaceFolder.uri.fsPath, 'scripts', 'preflight-check.ts');
+      
+      // Check if script exists
+      if (!existsSync(scriptPath)) {
+        const errorData = {
+          summaries: [{
+            category: 'Error',
+            results: [{
+              status: 'warning',
+              message: 'Preflight scripts not found',
+              details: `Expected preflight check script at: scripts/preflight-check.ts\n\nRun 'npx @enoteware/preflight setup' to set up preflight checks in this workspace.`,
+              helpUrl: 'https://github.com/enoteware/preflight',
+            }],
+          }],
+        };
+        const errorHtml = html.replace(
+          '// DATA_PLACEHOLDER',
+          `const initialData = ${JSON.stringify(errorData)};`
+        );
+        panel.webview.html = errorHtml;
+        return;
+      }
+
+      const command = `npx tsx "${scriptPath}" --json ${quickMode ? '--quick' : ''}`;
+
+      const { stdout } = await execAsync(command, {
+        cwd: workspaceFolder.uri.fsPath,
+        timeout: 30000,
+      });
+
+      const data = JSON.parse(stdout);
+
+      // Inject the data into the HTML
+      const htmlWithData = html.replace(
+        '// DATA_PLACEHOLDER',
+        `const initialData = ${JSON.stringify(data)};`
+      );
+
+      // Send update message to webview if it's already loaded
+      panel.webview.postMessage({
+        command: 'update',
+        data: data,
+      });
+
+      // Set initial HTML if not set
+      if (!panel.webview.html) {
+        panel.webview.html = htmlWithData;
+      }
+    } catch (error) {
+      const errorData = {
+        summaries: [{
+          category: 'Error',
+          results: [{
+            status: 'error',
+            message: 'Failed to load checks',
+            details: error instanceof Error ? error.message : String(error),
+          }],
+        }],
+      };
+
+      const errorHtml = html.replace(
+        '// DATA_PLACEHOLDER',
+        `const initialData = ${JSON.stringify(errorData)};`
+      );
+      
+      panel.webview.postMessage({
+        command: 'update',
+        data: errorData,
+      });
+
+      if (!panel.webview.html) {
+        panel.webview.html = errorHtml;
+      }
+    }
+  }
+
+  private static getWebviewContent(
+    webview: vscode.Webview,
+    context: vscode.ExtensionContext
+  ): string {
+    // Read the dashboard HTML file
+    const dashboardPath = vscode.Uri.joinPath(
+      context.extensionUri,
+      '..',
+      '..',
+      'preflight-dashboard.html'
+    );
+
+    // For now, we'll embed the HTML directly
+    // In production, you'd read from the file
+    return DashboardProvider.getEmbeddedHtml();
+  }
+
+  private static getEmbeddedHtml(): string {
+    // This will be the dashboard HTML with a placeholder for data injection
+    // We'll read from the actual file or embed it
+    return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -72,6 +254,9 @@
       color: #86868b;
       margin-bottom: 8px;
       letter-spacing: -0.1px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .status-item .value {
@@ -102,6 +287,8 @@
       letter-spacing: -0.1px;
       transition: all 0.2s ease;
       font-family: inherit;
+      display: flex;
+      align-items: center;
     }
 
     .btn-primary {
@@ -401,49 +588,26 @@
   </div>
 
   <script>
+    const vscode = acquireVsCodeApi();
     let autoRefreshInterval = null;
+    let initialData = null;
+
+    // DATA_PLACEHOLDER
 
     async function refreshChecks() {
       const content = document.getElementById('content');
       content.innerHTML = '<div class="loading pulse">Running checks...</div>';
 
-      try {
-        // Run preflight check and get JSON output
-        const response = await fetch('/preflight-status.json');
-        let data;
-        
-        if (response.ok) {
-          data = await response.json();
-        } else {
-          // If status.json doesn't exist, try running the script directly
-          // This requires a server that can execute the script
-          throw new Error('Status file not found. Make sure to run: npx tsx scripts/preflight-check.ts --json > preflight-status.json');
+      // Request refresh from extension
+      vscode.postMessage({ command: 'refresh' });
+      
+      // Wait a bit for the extension to update, then use initial data
+      setTimeout(() => {
+        if (initialData) {
+          updateDashboard(initialData);
+          updateLastUpdated();
         }
-
-        updateDashboard(data);
-        updateLastUpdated();
-      } catch (error) {
-        content.innerHTML = `
-          <div class="category">
-            <h2>Error</h2>
-            <div class="check-item error">
-              <div class="check-header">
-                <svg class="check-icon" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M6 3V6M6 9H6.01" stroke="#ff453a" stroke-width="1.5" stroke-linecap="round"/>
-                  <path d="M6 1C3.23858 1 1 3.23858 1 6C1 8.76142 3.23858 11 6 11C8.76142 11 11 8.76142 11 6C11 3.23858 8.76142 1 6 1Z" stroke="#ff453a" stroke-width="1.5" fill="none"/>
-                </svg>
-                <span class="check-message">Failed to load checks</span>
-              </div>
-              <div class="check-details">${error.message}</div>
-              <div class="check-details" style="margin-top: 10px;">
-                <strong>To use this dashboard:</strong><br>
-                1. Run: <code>npx tsx scripts/preflight-check.ts --json > preflight-status.json</code><br>
-                2. Or start the dashboard server: <code>npx tsx scripts/serve-dashboard.ts</code>
-              </div>
-            </div>
-          </div>
-        `;
-      }
+      }, 500);
     }
 
     function updateDashboard(data) {
@@ -454,54 +618,63 @@
         return;
       }
 
+      // Group by category
+      const grouped = {};
+      for (const summary of data.summaries) {
+        if (!grouped[summary.category]) {
+          grouped[summary.category] = [];
+        }
+        grouped[summary.category].push(...summary.results);
+      }
+
       let html = '<div class="categories">';
 
-      // Category icons mapping
       const categoryIcons = {
         'CLI Tools': '<svg class="category-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" fill="none"/><path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" fill="none"/><path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" fill="none"/></svg>',
         'Repository': '<svg class="category-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M12 6V12L16 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
         'Service Connections': '<svg class="category-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M8 12H16M12 8V16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+        'Environment Checks': '<svg class="category-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" fill="none"/></svg>',
       };
 
-      for (const summary of data.summaries) {
-        const icon = categoryIcons[summary.category] || '<svg class="category-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" fill="none"/></svg>';
-        html += `<div class="category">
-          <h2>${icon}${summary.category}</h2>`;
+      for (const [category, results] of Object.entries(grouped)) {
+        const icon = categoryIcons[category] || '<svg class="category-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" fill="none"/></svg>';
+        html += \`<div class="category">
+          <h2>\${icon}\${category}</h2>\`;
 
-        for (const result of summary.results) {
+        for (const result of results) {
           const statusIcon = result.status === 'ok' 
             ? '<svg class="check-icon" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 3L4.5 8.5L2 6" stroke="#30d158" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
             : result.status === 'warning'
             ? '<svg class="check-icon" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 3V6M6 9H6.01" stroke="#ff9f0a" stroke-width="1.5" stroke-linecap="round"/><path d="M6 1C3.23858 1 1 3.23858 1 6C1 8.76142 3.23858 11 6 11C8.76142 11 11 8.76142 11 6C11 3.23858 8.76142 1 6 1Z" stroke="#ff9f0a" stroke-width="1.5" fill="none"/></svg>'
             : '<svg class="check-icon" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 3V6M6 9H6.01" stroke="#ff453a" stroke-width="1.5" stroke-linecap="round"/><path d="M6 1C3.23858 1 1 3.23858 1 6C1 8.76142 3.23858 11 6 11C8.76142 11 11 8.76142 11 6C11 3.23858 8.76142 1 6 1Z" stroke="#ff453a" stroke-width="1.5" fill="none"/></svg>';
           
-          const latency = result.latency ? ` <span class="check-latency">(${result.latency}ms)</span>` : '';
+          const latency = result.latency ? \` <span class="check-latency">(\${result.latency}ms)</span>\` : '';
           
-          html += `
-            <div class="check-item ${result.status}">
+          html += \`
+            <div class="check-item \${result.status}">
               <div class="check-header">
-                ${statusIcon}
-                <span class="check-message">${result.message}</span>
-                ${latency}
-              </div>`;
+                \${statusIcon}
+                <span class="check-message">\${result.message}</span>
+                \${latency}
+              </div>\`;
 
           if (result.details) {
-            html += `<div class="check-details">${result.details}</div>`;
+            html += \`<div class="check-details">\${result.details}</div>\`;
           }
 
           if (result.helpUrl) {
-            html += `<div class="check-help"><a href="${result.helpUrl}" target="_blank">
+            html += \`<div class="check-help"><a href="\${result.helpUrl}" target="_blank">
               <svg style="width: 14px; height: 14px; vertical-align: middle; margin-right: 4px;" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M8 12H8.01M8 8C8 6.34315 9.34315 5 11 5C12.6569 5 14 6.34315 14 8C14 9.65685 12.6569 11 11 11H8V8Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/>
                 <path d="M8 1C4.13401 1 1 4.13401 1 8C1 11.866 4.13401 15 8 15C11.866 15 15 11.866 15 8C15 4.13401 11.866 1 8 1Z" stroke="currentColor" stroke-width="1.5" fill="none"/>
               </svg>
-              Help</a></div>`;
+              Help</a></div>\`;
           }
 
-          html += `</div>`;
+          html += \`</div>\`;
         }
 
-        html += `</div>`;
+        html += \`</div>\`;
       }
 
       html += '</div>';
@@ -527,7 +700,7 @@
     function updateLastUpdated() {
       const now = new Date();
       document.getElementById('lastUpdated').textContent = 
-        `Last updated: ${now.toLocaleTimeString()}`;
+        \`Last updated: \${now.toLocaleTimeString()}\`;
     }
 
     function toggleAutoRefresh() {
@@ -544,12 +717,29 @@
     }
 
     // Initial load
-    refreshChecks();
+    if (initialData) {
+      updateDashboard(initialData);
+      updateLastUpdated();
+    } else {
+      refreshChecks();
+    }
     
     // Start auto-refresh if enabled
     if (document.getElementById('autoRefresh').checked) {
       toggleAutoRefresh();
     }
+
+    // Listen for messages from extension
+    window.addEventListener('message', event => {
+      const message = event.data;
+      if (message.command === 'update') {
+        initialData = message.data;
+        updateDashboard(initialData);
+        updateLastUpdated();
+      }
+    });
   </script>
 </body>
-</html>
+</html>`;
+  }
+}

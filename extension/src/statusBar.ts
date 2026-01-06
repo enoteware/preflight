@@ -7,8 +7,10 @@ import type { StatusSummary } from './types';
 
 export class PreflightStatusBar {
   private statusBarItem: vscode.StatusBarItem;
+  private dashboardItem: vscode.StatusBarItem;
 
   constructor() {
+    // Main status item (shows check summary)
     this.statusBarItem = vscode.window.createStatusBarItem(
       vscode.StatusBarAlignment.Right,
       100
@@ -16,6 +18,18 @@ export class PreflightStatusBar {
 
     this.statusBarItem.command = 'preflight.runCheck';
     this.statusBarItem.show();
+
+    // Dashboard button (opens dashboard view)
+    this.dashboardItem = vscode.window.createStatusBarItem(
+      vscode.StatusBarAlignment.Right,
+      99
+    );
+
+    this.dashboardItem.text = '$(dashboard) Dashboard';
+    this.dashboardItem.tooltip = 'Open Preflight Dashboard';
+    this.dashboardItem.command = 'preflight.openDashboard';
+    this.dashboardItem.show();
+
     this.updateStatus({ total: 0, ok: 0, warnings: 0, errors: 0 });
   }
 
@@ -25,8 +39,12 @@ export class PreflightStatusBar {
 
     if (!showInStatusBar) {
       this.statusBarItem.hide();
+      this.dashboardItem.hide();
       return;
     }
+
+    // Always show dashboard button if status bar is enabled
+    this.dashboardItem.show();
 
     // Determine icon and color
     let icon = '$(check)';
@@ -76,5 +94,6 @@ export class PreflightStatusBar {
 
   dispose(): void {
     this.statusBarItem.dispose();
+    this.dashboardItem.dispose();
   }
 }
