@@ -14,6 +14,12 @@ Repo-agnostic preflight checks and dev server management toolkit.
 3. Install and activate the VS Code extension
 4. Verify everything is working
 
+**When troubleshooting check failures, see [docs/AGENT_INSTRUCTIONS.md](docs/AGENT_INSTRUCTIONS.md) for:**
+- How to interpret check results (Configuration vs Service Connections)
+- What each error status means and how to fix it
+- Step-by-step troubleshooting flows
+- Service-specific fix instructions
+
 See detailed steps below.
 
 When setting up preflight for a user, follow these steps:
@@ -158,6 +164,7 @@ npx @enoteware/preflight update
 - 🔄 **Auto-updates**: Always get latest version via npx
 - 🎯 **VS Code Extension**: Real-time API health monitoring in your IDE (see [extension/README.md](extension/README.md))
 - 🔧 **Easy Customization**: Add your own service checks (see [docs/COMMON_SERVICES.md](docs/COMMON_SERVICES.md))
+- 🤖 **Agent-Friendly**: Clear instructions for AI agents on troubleshooting (see [docs/AGENT_INSTRUCTIONS.md](docs/AGENT_INSTRUCTIONS.md))
 
 ## Commands After Setup
 
