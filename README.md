@@ -2,6 +2,100 @@
 
 Repo-agnostic preflight checks and dev server management toolkit.
 
+**Repository:** https://github.com/enoteware/preflight
+
+## For AI Agents (Claude/Cursor)
+
+**IMPORTANT:** When a user requests preflight setup, you must:
+1. Fetch/clone this repository from GitHub
+2. Set up scripts in the user's project
+3. Install and activate the VS Code extension
+4. Verify everything is working
+
+See detailed steps below.
+
+When setting up preflight for a user, follow these steps:
+
+### 1. Fetch the Repository
+
+```bash
+# Clone the repository (use a temp directory or the user's workspace)
+git clone https://github.com/enoteware/preflight.git /tmp/preflight-setup
+# Or if already cloned in workspace:
+cd /path/to/preflight && git pull origin main
+
+# Note: Remember the path where you cloned it - you'll need it for steps 2 and 3
+```
+
+### 2. Set Up Preflight Scripts in User's Project
+
+```bash
+# Navigate to the user's project directory (where they want preflight installed)
+cd /path/to/user/project
+
+# Run the setup script from the cloned repository
+# Replace /tmp/preflight-setup with the actual path where you cloned the repo
+npx tsx /tmp/preflight-setup/src/setup.ts
+
+# Alternative: Use the npm package (if published)
+# npx @enoteware/preflight setup
+```
+
+This will:
+- Create `scripts/preflight-check.ts`
+- Create `scripts/preflight-validators/` with validators:
+  - `cli.ts` - CLI tool checks (Node.js, npm, etc.)
+  - `env.ts` - Environment variable validation
+  - `services.ts` - **Service connector checks (GitHub API, public APIs, etc.)**
+  - `types.ts` - Type definitions
+- Add npm scripts to `package.json`
+- Set up VS Code configuration
+
+**Note:** Service connectors are automatically set up with basic checks (GitHub API, public API). Users can add more service checks (OpenAI, Resend, Stack Auth, Vercel, Neon, etc.) by editing `scripts/preflight-validators/services.ts`.
+
+### 3. Install the VS Code Extension
+
+```bash
+# Navigate to extension directory in the cloned repository
+# Replace /tmp/preflight-setup with the actual path where you cloned the repo
+cd /tmp/preflight-setup/extension
+
+# Install dependencies and build
+npm install
+npm run compile
+npm run package
+
+# Find the generated VSIX file
+ls -la *.vsix
+# It will be named something like: preflight-status-1.0.0.vsix
+
+# Install the VSIX file (use the exact filename from ls command)
+# For VS Code:
+code --install-extension preflight-status-1.0.0.vsix
+
+# For Cursor:
+cursor --install-extension preflight-status-1.0.0.vsix
+```
+
+### 4. Reload IDE
+
+Tell the user to reload their VS Code/Cursor window:
+- Press `Cmd+Shift+P` (Mac) or `Ctrl+Shift+P` (Windows/Linux)
+- Type "Reload Window" and press Enter
+
+### 5. Verify Installation
+
+Check that:
+- ✅ `scripts/preflight-check.ts` exists
+- ✅ `scripts/preflight-validators/` directory exists with:
+  - `cli.ts` - CLI tool validators
+  - `env.ts` - Environment variable validators
+  - `services.ts` - **Service connector validators (automatically created)**
+  - `types.ts` - Type definitions
+- ✅ Extension appears in VS Code/Cursor sidebar (Preflight Status icon)
+- ✅ Status bar shows preflight status
+- ✅ Service connectors are working (check the "Service Connections" view in the extension)
+
 ## Installation
 
 ```bash
@@ -61,11 +155,18 @@ npm install
 npm run compile
 npm run package
 
-# Install the VSIX
-code --install-extension preflight-status-1.0.0.vsix
+# Install the VSIX (replace with actual version number)
+code --install-extension preflight-status-*.vsix
 # or for Cursor:
-cursor --install-extension preflight-status-1.0.0.vsix
+cursor --install-extension preflight-status-*.vsix
+
+# Then reload the IDE window
 ```
+
+**Important for AI Agents:** After installing the extension, you must:
+1. Reload the VS Code/Cursor window (Cmd+Shift+P → "Reload Window")
+2. Verify the extension appears in the sidebar (look for the Preflight Status icon)
+3. Check that the status bar shows preflight status on the right side
 
 See [extension/README.md](extension/README.md) for detailed installation and usage instructions.
 

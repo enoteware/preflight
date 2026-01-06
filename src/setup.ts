@@ -188,6 +188,125 @@ export function validateEnvVars(): CheckResult[] {
 `
   );
   
+  // Create service validators
+  writeFileSync(
+    join(scriptsDir, 'services.ts'),
+    `import { CheckResult } from './types';
+
+/**
+ * Check GitHub API connection (requires GITHUB_TOKEN)
+ */
+export async function checkGitHubAPI(): Promise<CheckResult> {
+  const token = process.env.GITHUB_TOKEN;
+  const startTime = Date.now();
+
+  if (!token) {
+    return {
+      status: 'warning',
+      message: 'GitHub API key not configured',
+      details: 'Set GITHUB_TOKEN environment variable to test GitHub API',
+      helpUrl: 'https://github.com/settings/tokens',
+    };
+  }
+
+  try {
+    const response = await fetch('https://api.github.com/user', {
+      method: 'GET',
+      headers: {
+        'Authorization': \`Bearer \${token}\`,
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'preflight-check',
+      },
+      signal: AbortSignal.timeout(5000),
+    });
+
+    const latency = Date.now() - startTime;
+
+    if (response.ok) {
+      const data = await response.json();
+      return {
+        status: 'ok',
+        message: 'GitHub API authenticated successfully',
+        details: \`Logged in as: \${data.login || 'authenticated user'}\`,
+        latency,
+        helpUrl: 'https://github.com/settings/tokens',
+      };
+    } else if (response.status === 401) {
+      return {
+        status: 'error',
+        message: 'GitHub API authentication failed',
+        details: 'Invalid or expired GITHUB_TOKEN',
+        latency,
+        helpUrl: 'https://github.com/settings/tokens',
+      };
+    } else {
+      return {
+        status: 'warning',
+        message: \`GitHub API returned unexpected status: \${response.status}\`,
+        details: response.statusText,
+        latency,
+      };
+    }
+  } catch (error) {
+    const latency = Date.now() - startTime;
+    return {
+      status: 'error',
+      message: 'GitHub API check failed',
+      details: error instanceof Error ? error.message : String(error),
+      latency,
+    };
+  }
+}
+
+/**
+ * Check a public API endpoint (no auth required)
+ */
+export async function checkPublicAPI(): Promise<CheckResult> {
+  const startTime = Date.now();
+  try {
+    const response = await fetch('https://httpbin.org/json', {
+      method: 'GET',
+      signal: AbortSignal.timeout(5000),
+    });
+
+    const latency = Date.now() - startTime;
+
+    if (response.ok) {
+      return {
+        status: 'ok',
+        message: 'Public API (httpbin.org) is reachable',
+        details: \`Status: \${response.status}\`,
+        latency,
+        helpUrl: 'https://httpbin.org',
+      };
+    } else {
+      return {
+        status: 'warning',
+        message: 'Public API returned non-OK status',
+        details: \`Status: \${response.status}\`,
+        latency,
+      };
+    }
+  } catch (error) {
+    const latency = Date.now() - startTime;
+    return {
+      status: 'error',
+      message: 'Public API check failed',
+      details: error instanceof Error ? error.message : String(error),
+      latency,
+    };
+  }
+}
+
+// Add more service checks as needed:
+// - checkOpenAI() - requires OPENAI_API_KEY
+// - checkResend() - requires RESEND_API_KEY
+// - checkStackAuth() - requires STACK_* keys
+// - checkVercel() - requires VERCEL_TOKEN
+// - checkNeonDatabase() - requires DATABASE_URL
+`
+  );
+  
   // Create main preflight check script
   writeFileSync(
     join(project.rootDir, 'scripts', 'preflight-check.ts'),
@@ -205,9 +324,10 @@ config({ path: resolve(process.cwd(), '..', '.env.local') });
 
 import { checkNode, checkPackageManager } from './preflight-validators/cli';
 import { validateEnvVars } from './preflight-validators/env';
+import { checkGitHubAPI, checkPublicAPI } from './preflight-validators/services';
 import { CheckResult, CheckSummary } from './preflight-validators/types';
 
-async function runChecks(): Promise<CheckSummary[]> {
+async function runChecks(quickMode = false): Promise<CheckSummary[]> {
   const summaries: CheckSummary[] = [];
   
   // CLI Tools
@@ -221,6 +341,21 @@ async function runChecks(): Promise<CheckSummary[]> {
   const envResults = validateEnvVars();
   summaries.push({ category: 'Environment Variables', results: envResults });
   
+  // Service Connections
+  const serviceResults: CheckResult[] = [];
+  
+  // Always run public API check (fast, no auth required)
+  const publicApiResult = await checkPublicAPI();
+  serviceResults.push(publicApiResult);
+  
+  // Check authenticated APIs (if not in quick mode)
+  if (!quickMode) {
+    const githubApiResult = await checkGitHubAPI();
+    serviceResults.push(githubApiResult);
+  }
+  
+  summaries.push({ category: 'Service Connections', results: serviceResults });
+  
   return summaries;
 }
 
@@ -229,7 +364,7 @@ async function main() {
   const jsonOutput = args.includes('--json') || args.includes('--status');
   const quick = args.includes('--quick');
   
-  const summaries = await runChecks();
+  const summaries = await runChecks(quick);
   
   // Add timestamps
   summaries.forEach(summary => {
