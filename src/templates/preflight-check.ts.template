@@ -401,8 +401,9 @@ async function main() {
   const isFixMode = args.includes('--fix');
   const isCIMode = args.includes('--ci');
   const isQuickMode = args.includes('--quick');
+  const isJsonMode = args.includes('--json');
 
-  if (!isCIMode) {
+  if (!isCIMode && !isJsonMode) {
     printHeader();
     if (isQuickMode) {
       console.log(colorize('⚡ Quick Mode: Skipping slow connection tests', 'cyan'));
@@ -412,10 +413,24 @@ async function main() {
 
   let summaries = await runChecks(isQuickMode);
 
-  if (isFixMode && !isCIMode) {
+  if (isFixMode && !isCIMode && !isJsonMode) {
     await interactiveFix(summaries);
     // Re-run checks after fixes
     summaries = await runChecks();
+  }
+
+  // JSON output mode (for VSCode extension)
+  if (isJsonMode) {
+    console.log(JSON.stringify({ summaries }, null, 2));
+    // Exit with appropriate code
+    let hasErrors = false;
+    for (const summary of summaries) {
+      for (const result of summary.results) {
+        if (result.status === 'error') hasErrors = true;
+      }
+    }
+    process.exit(hasErrors ? 1 : 0);
+    return;
   }
 
   // Print results

@@ -1,0 +1,128 @@
+{
+  "name": "preflight-status",
+  "displayName": "Preflight Status",
+  "description": "Real-time API health and environment status monitoring",
+  "version": "1.0.0",
+  "publisher": "enoteware",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/enoteware/preflight.git"
+  },
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "preflight-status",
+          "title": "Preflight Status",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "preflight-status": [
+        {
+          "id": "preflightChecks",
+          "name": "Environment Checks"
+        },
+        {
+          "id": "preflightServices",
+          "name": "Service Connections"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "preflight.refresh",
+        "title": "Refresh Checks",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "preflight.runCheck",
+        "title": "Run Preflight Check",
+        "icon": "$(run)"
+      },
+      {
+        "command": "preflight.openDashboard",
+        "title": "Open Dashboard",
+        "icon": "$(dashboard)"
+      },
+      {
+        "command": "preflight.copyHelpUrl",
+        "title": "Copy Help URL",
+        "icon": "$(link)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "preflight.refresh",
+          "when": "view == preflightChecks || view == preflightServices",
+          "group": "navigation"
+        },
+        {
+          "command": "preflight.runCheck",
+          "when": "view == preflightChecks || view == preflightServices",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "preflight.copyHelpUrl",
+          "when": "viewItem == check-with-help",
+          "group": "inline"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Preflight Status",
+      "properties": {
+        "preflight.autoRefresh": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically refresh checks periodically"
+        },
+        "preflight.refreshInterval": {
+          "type": "number",
+          "default": 10,
+          "description": "Refresh interval in seconds (min: 5)"
+        },
+        "preflight.showInStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show status in the status bar"
+        },
+        "preflight.quickMode": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use quick mode (skip slow checks)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.80.0",
+    "@vscode/vsce": "^2.22.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "dotenv": "^16.3.1"
+  }
+}
