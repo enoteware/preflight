@@ -197,15 +197,34 @@ export function validateEnvVars(): CheckResult[] {
  * Service connection checks - these verify that services are reachable and responding.
  * These checks only run if the corresponding environment variable is set.
  * 
+ * IMPORTANT: These checks make REAL API calls to verify your keys are working.
+ * A service check will:
+ * 1. Check if the env var exists (skip if missing)
+ * 2. Make an authenticated API call using the key
+ * 3. Verify the response is 200 OK (key is valid and working)
+ * 4. Return error if 401 (invalid/expired key) or other failures
+ * 
+ * This ensures your API keys are not just SET, but actually WORKING.
+ * 
  * To add a new service check:
  * 1. Create a function that checks if the env var exists
- * 2. If it exists, make an API call to verify connectivity
- * 3. Return a CheckResult with status, message, latency, and details
+ * 2. If it exists, make an API call with the key to verify it works
+ * 3. Check response.status === 200 to confirm key is valid
+ * 4. Return a CheckResult with status, message, latency, and details
  */
 
 /**
  * Check GitHub API connection (requires GITHUB_TOKEN)
- * This only checks connectivity - env var validation is done separately
+ * 
+ * This makes a REAL API call to verify your GITHUB_TOKEN is valid and working.
+ * It calls https://api.github.com/user which requires authentication.
+ * 
+ * Results:
+ * - ✅ 200 OK: Token is valid and working (shows authenticated username)
+ * - ❌ 401: Token is invalid, expired, or revoked
+ * - ❌ Timeout/Network: Service unreachable
+ * 
+ * This ensures your key is not just SET, but actually WORKING.
  */
 export async function checkGitHubAPI(): Promise<CheckResult> {
   const token = process.env.GITHUB_TOKEN;
@@ -222,6 +241,8 @@ export async function checkGitHubAPI(): Promise<CheckResult> {
   }
 
   try {
+    // Make REAL API call to verify the token works
+    // This endpoint requires authentication - if we get 200, the key is valid
     const response = await fetch('https://api.github.com/user', {
       method: 'GET',
       headers: {
@@ -234,20 +255,22 @@ export async function checkGitHubAPI(): Promise<CheckResult> {
 
     const latency = Date.now() - startTime;
 
+    // 200 OK = Key is valid and working!
     if (response.ok) {
       const data = await response.json();
       return {
         status: 'ok',
         message: 'GitHub API: 200 OK',
-        details: \`Authenticated as: \${data.login || 'authenticated user'} (\${latency}ms)\`,
+        details: \`✅ Key verified - Authenticated as: \${data.login || 'authenticated user'} (\${latency}ms)\`,
         latency,
         helpUrl: 'https://github.com/settings/tokens',
       };
     } else if (response.status === 401) {
+      // 401 = Key is invalid, expired, or revoked
       return {
         status: 'error',
         message: 'GitHub API: Authentication failed',
-        details: \`Invalid or expired token (HTTP \${response.status}, \${latency}ms)\`,
+        details: \`❌ Key is invalid or expired (HTTP \${response.status}, \${latency}ms)\`,
         latency,
         helpUrl: 'https://github.com/settings/tokens',
       };
@@ -328,13 +351,29 @@ export async function checkPublicAPI(): Promise<CheckResult> {
 }
 
 // Add more service checks as needed:
+// 
+// CRITICAL: Always make a REAL API call to verify the key works!
+// Don't just check if the key exists - test it with an authenticated request.
+//
 // Example pattern:
 // export async function checkOpenAI(): Promise<CheckResult> {
 //   const apiKey = process.env.OPENAI_API_KEY;
 //   if (!apiKey) {
 //     return { status: 'warning', message: 'OpenAI API: Not checked (OPENAI_API_KEY not set)' };
 //   }
-//   // Make API call to verify connectivity...
+//   
+//   // Make REAL API call to verify key works
+//   const response = await fetch('https://api.openai.com/v1/models', {
+//     headers: { 'Authorization': \`Bearer \${apiKey}\` },
+//     signal: AbortSignal.timeout(5000),
+//   });
+//   
+//   if (response.ok) {
+//     return { status: 'ok', message: 'OpenAI API: 200 OK', details: 'Key verified and working' };
+//   } else if (response.status === 401) {
+//     return { status: 'error', message: 'OpenAI API: Invalid key', details: 'Key is invalid or expired' };
+//   }
+//   // ... handle other cases
 // }
 `
   );
@@ -375,14 +414,20 @@ async function runChecks(quickMode = false): Promise<CheckSummary[]> {
   summaries.push({ category: 'Configuration', results: envResults });
   
   // Service Connections: Connectivity checks
-  // These verify services are reachable and responding (only if env vars are set)
+  // These make REAL API calls to verify your keys are working (not just set).
+  // Each check will:
+  // - Make an authenticated API request using the env var
+  // - Verify response is 200 OK (key is valid)
+  // - Return error if 401 (invalid/expired key) or other failures
+  // This ensures your API keys are actually WORKING, not just configured.
   const serviceResults: CheckResult[] = [];
   
-  // Always run public API check (fast, no auth required)
+  // Always run public API check (fast, no auth required - verifies internet connectivity)
   const publicApiResult = await checkPublicAPI();
   serviceResults.push(publicApiResult);
   
   // Check authenticated APIs (if not in quick mode)
+  // These verify your API keys are valid by making real authenticated requests
   if (!quickMode) {
     const githubApiResult = await checkGitHubAPI();
     serviceResults.push(githubApiResult);
@@ -1088,15 +1133,34 @@ function getServicesTemplate(): string {
  * Service connection checks - these verify that services are reachable and responding.
  * These checks only run if the corresponding environment variable is set.
  * 
+ * IMPORTANT: These checks make REAL API calls to verify your keys are working.
+ * A service check will:
+ * 1. Check if the env var exists (skip if missing)
+ * 2. Make an authenticated API call using the key
+ * 3. Verify the response is 200 OK (key is valid and working)
+ * 4. Return error if 401 (invalid/expired key) or other failures
+ * 
+ * This ensures your API keys are not just SET, but actually WORKING.
+ * 
  * To add a new service check:
  * 1. Create a function that checks if the env var exists
- * 2. If it exists, make an API call to verify connectivity
- * 3. Return a CheckResult with status, message, latency, and details
+ * 2. If it exists, make an API call with the key to verify it works
+ * 3. Check response.status === 200 to confirm key is valid
+ * 4. Return a CheckResult with status, message, latency, and details
  */
 
 /**
  * Check GitHub API connection (requires GITHUB_TOKEN)
- * This only checks connectivity - env var validation is done separately
+ * 
+ * This makes a REAL API call to verify your GITHUB_TOKEN is valid and working.
+ * It calls https://api.github.com/user which requires authentication.
+ * 
+ * Results:
+ * - ✅ 200 OK: Token is valid and working (shows authenticated username)
+ * - ❌ 401: Token is invalid, expired, or revoked
+ * - ❌ Timeout/Network: Service unreachable
+ * 
+ * This ensures your key is not just SET, but actually WORKING.
  */
 export async function checkGitHubAPI(): Promise<CheckResult> {
   const token = process.env.GITHUB_TOKEN;
@@ -1113,6 +1177,8 @@ export async function checkGitHubAPI(): Promise<CheckResult> {
   }
 
   try {
+    // Make REAL API call to verify the token works
+    // This endpoint requires authentication - if we get 200, the key is valid
     const response = await fetch('https://api.github.com/user', {
       method: 'GET',
       headers: {
@@ -1125,20 +1191,22 @@ export async function checkGitHubAPI(): Promise<CheckResult> {
 
     const latency = Date.now() - startTime;
 
+    // 200 OK = Key is valid and working!
     if (response.ok) {
       const data = await response.json();
       return {
         status: 'ok',
         message: 'GitHub API: 200 OK',
-        details: \`Authenticated as: \${data.login || 'authenticated user'} (\${latency}ms)\`,
+        details: \`✅ Key verified - Authenticated as: \${data.login || 'authenticated user'} (\${latency}ms)\`,
         latency,
         helpUrl: 'https://github.com/settings/tokens',
       };
     } else if (response.status === 401) {
+      // 401 = Key is invalid, expired, or revoked
       return {
         status: 'error',
         message: 'GitHub API: Authentication failed',
-        details: \`Invalid or expired token (HTTP \${response.status}, \${latency}ms)\`,
+        details: \`❌ Key is invalid or expired (HTTP \${response.status}, \${latency}ms)\`,
         latency,
         helpUrl: 'https://github.com/settings/tokens',
       };
@@ -1219,13 +1287,29 @@ export async function checkPublicAPI(): Promise<CheckResult> {
 }
 
 // Add more service checks as needed:
+// 
+// CRITICAL: Always make a REAL API call to verify the key works!
+// Don't just check if the key exists - test it with an authenticated request.
+//
 // Example pattern:
 // export async function checkOpenAI(): Promise<CheckResult> {
 //   const apiKey = process.env.OPENAI_API_KEY;
 //   if (!apiKey) {
 //     return { status: 'warning', message: 'OpenAI API: Not checked (OPENAI_API_KEY not set)' };
 //   }
-//   // Make API call to verify connectivity...
+//   
+//   // Make REAL API call to verify key works
+//   const response = await fetch('https://api.openai.com/v1/models', {
+//     headers: { 'Authorization': \`Bearer \${apiKey}\` },
+//     signal: AbortSignal.timeout(5000),
+//   });
+//   
+//   if (response.ok) {
+//     return { status: 'ok', message: 'OpenAI API: 200 OK', details: 'Key verified and working' };
+//   } else if (response.status === 401) {
+//     return { status: 'error', message: 'OpenAI API: Invalid key', details: 'Key is invalid or expired' };
+//   }
+//   // ... handle other cases
 // }
 `;
 }

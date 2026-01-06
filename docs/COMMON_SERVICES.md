@@ -2,6 +2,21 @@
 
 This guide shows how to add service connectivity checks for common services. These examples follow the v1.1.0 pattern where service checks skip if env vars are missing (configuration is checked separately).
 
+## ⚠️ Critical: Always Verify Keys Work
+
+**IMPORTANT**: Service checks must make **REAL API calls** to verify your keys are working, not just that they're set.
+
+- ✅ **Configuration check**: "Is `GITHUB_TOKEN` set?" (instant, no network)
+- ✅ **Service check**: "Does `GITHUB_TOKEN` work?" (makes API call, verifies 200 OK)
+
+A service check should:
+1. Check if env var exists (skip if missing)
+2. **Make an authenticated API call** using the key
+3. **Verify `response.ok` (200-299)** to confirm key is valid
+4. Return error if 401 (invalid/expired key) or other failures
+
+This ensures your API keys are **actually working**, not just configured.
+
 ## Pattern
 
 All service checks follow this pattern:
@@ -22,7 +37,8 @@ export async function checkServiceName(): Promise<CheckResult> {
   }
 
   try {
-    // Make API call to verify connectivity
+    // ⚠️ CRITICAL: Make REAL API call to verify the key works
+    // This endpoint should require authentication - if we get 200, the key is valid
     const response = await fetch('https://api.service.com/endpoint', {
       method: 'GET',
       headers: {
@@ -33,19 +49,21 @@ export async function checkServiceName(): Promise<CheckResult> {
 
     const latency = Date.now() - startTime;
 
+    // 200 OK = Key is valid and working!
     if (response.ok) {
       return {
         status: 'ok',
         message: 'Service Name: 200 OK',
-        details: `Connected successfully (${latency}ms)`,
+        details: `✅ Key verified - Connected successfully (${latency}ms)`,
         latency,
         helpUrl: 'https://service.com/docs',
       };
     } else if (response.status === 401) {
+      // 401 = Key is invalid, expired, or revoked
       return {
         status: 'error',
         message: 'Service Name: Authentication failed',
-        details: `Invalid or expired token (HTTP ${response.status}, ${latency}ms)`,
+        details: `❌ Key is invalid or expired (HTTP ${response.status}, ${latency}ms)`,
         latency,
         helpUrl: 'https://service.com/api-keys',
       };
@@ -489,11 +507,32 @@ serviceResults.push(resendResult);
 ## Best Practices
 
 1. **Always check for env var first** - Return "Not checked" if missing
-2. **Include latency** - Helps monitor performance
-3. **Handle timeouts** - Use `AbortSignal.timeout(5000)`
-4. **Provide help URLs** - Makes it easy to fix issues
-5. **Differentiate error types** - 401 (auth) vs 500 (server) vs timeout
-6. **Handle edge cases** - Restricted keys, rate limits, etc.
+2. **Make REAL API calls** - Don't just check if key exists, verify it works with a 200 response
+3. **Verify 200 OK** - `response.ok` confirms the key is valid and working
+4. **Handle 401 errors** - Invalid/expired keys should return error status
+5. **Include latency** - Helps monitor performance
+6. **Handle timeouts** - Use `AbortSignal.timeout(5000)`
+7. **Provide help URLs** - Makes it easy to fix issues
+8. **Differentiate error types** - 401 (auth) vs 500 (server) vs timeout
+9. **Handle edge cases** - Restricted keys, rate limits, etc.
+
+## Testing Your Service Checks
+
+After adding a service check, verify it works:
+
+```bash
+# Run preflight check
+npm run preflight
+
+# You should see:
+# ✅ Service Name: 200 OK
+#    ✅ Key verified - Connected successfully (123ms)
+```
+
+If you see:
+- ❌ "Authentication failed" → Your key is invalid/expired
+- ❌ "Not checked" → Key not set (add to .env.local)
+- ✅ "200 OK" → Key is valid and working!
 
 ## Need More Examples?
 
