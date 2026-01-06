@@ -105,6 +105,18 @@ async function refreshChecks() {
   try {
     const results = await runPreflightChecks();
 
+    // Check for errors in the results (runPreflightChecks returns error results, doesn't throw)
+    if (results.summary.errors > 0) {
+      const errorMessages = [
+        ...results.checks.filter(c => c.status === 'error'),
+        ...results.services.filter(s => s.status === 'error'),
+      ].map(e => e.message).join(', ');
+      
+      if (errorMessages) {
+        vscode.window.showWarningMessage(`Preflight checks found errors: ${errorMessages}`);
+      }
+    }
+
     // Update tree views
     checksProvider.updateChecks(results.checks);
     servicesProvider.updateChecks(results.services);
@@ -112,8 +124,10 @@ async function refreshChecks() {
     // Update status bar
     statusBar.updateStatus(results.summary);
   } catch (error) {
+    // This catch only handles actual exceptions (e.g., if runPreflightChecks itself fails)
     console.error('Error refreshing checks:', error);
-    vscode.window.showErrorMessage(`Preflight check failed: ${error}`);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    vscode.window.showErrorMessage(`Preflight check failed: ${errorMessage}`);
   }
 }
 

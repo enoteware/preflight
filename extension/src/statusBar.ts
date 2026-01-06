@@ -30,14 +30,14 @@ export class PreflightStatusBar {
 
     // Determine icon and color
     let icon = '$(check)';
-    let color: string | undefined;
+    let color: vscode.ThemeColor | undefined;
 
     if (summary.errors > 0) {
       icon = '$(error)';
-      color = new vscode.ThemeColor('statusBarItem.errorBackground').toString();
+      color = new vscode.ThemeColor('statusBarItem.errorBackground');
     } else if (summary.warnings > 0) {
       icon = '$(warning)';
-      color = new vscode.ThemeColor('statusBarItem.warningBackground').toString();
+      color = new vscode.ThemeColor('statusBarItem.warningBackground');
     } else if (summary.ok > 0) {
       icon = '$(check)';
       color = undefined; // Default color
@@ -48,7 +48,7 @@ export class PreflightStatusBar {
 
     this.statusBarItem.text = text;
     this.statusBarItem.tooltip = this.buildTooltip(summary);
-    this.statusBarItem.backgroundColor = color as any;
+    this.statusBarItem.backgroundColor = color;
 
     this.statusBarItem.show();
   }
