@@ -22,15 +22,50 @@ Repo-agnostic preflight checks and dev server management toolkit.
 
 See detailed steps below.
 
-When setting up preflight for a user, follow these steps:
+## ⚠️ ALWAYS Pull Latest Code
 
-### 1. Fetch the Repository
+**CRITICAL:** This repository is actively developed. Always pull the latest code before setup or updates.
 
 ```bash
-# Clone the repository (use a temp directory or the user's workspace)
+# If repository is already cloned - PULL LATEST FIRST
+cd /path/to/preflight
+git fetch origin
+git pull origin main  # or: git reset --hard origin/main (for force update)
+
+# Verify you have the latest commit
+git log --oneline -1
+# Should show the most recent commit
+
+# If cloning fresh
+git clone https://github.com/enoteware/preflight.git
+cd preflight
+```
+
+**Why this matters:**
+- ✅ Latest bug fixes and features
+- ✅ Updated service logos (15+ included)
+- ✅ Latest dashboard improvements
+- ✅ Extension updates and fixes
+- ✅ New service integrations
+
+When setting up preflight for a user, follow these steps:
+
+### 1. Fetch/Update the Repository
+
+```bash
+# OPTION A: Clone fresh (recommended for first time)
 git clone https://github.com/enoteware/preflight.git /tmp/preflight-setup
-# Or if already cloned in workspace:
-cd /path/to/preflight && git pull origin main
+cd /tmp/preflight-setup
+
+# OPTION B: Update existing clone (if you already have it)
+cd /path/to/preflight
+git fetch origin
+git reset --hard origin/main  # Force update to latest
+git pull origin main
+
+# VERIFY you have latest
+git log --oneline -1
+# Compare this SHA with: https://github.com/enoteware/preflight/commits/main
 
 # Note: Remember the path where you cloned it - you'll need it for steps 2 and 3
 ```
@@ -61,14 +96,16 @@ This will:
 
 **Note:** Service connectors are automatically set up with basic checks (GitHub API, public API). Users can add more service checks (OpenAI, Resend, Stack Auth, Vercel, Neon, etc.) by editing `scripts/preflight-validators/services.ts`.
 
-### 3. Install the VS Code Extension
+### 3. Install/Update the VS Code Extension
+
+**IMPORTANT:** Always rebuild the extension from latest code to get updates.
 
 ```bash
 # Navigate to extension directory in the cloned repository
 # Replace /tmp/preflight-setup with the actual path where you cloned the repo
 cd /tmp/preflight-setup/extension
 
-# Install dependencies and build
+# Install dependencies and build (always do this for latest updates)
 npm install
 npm run compile
 npm run package
@@ -78,12 +115,15 @@ ls -la *.vsix
 # It will be named something like: preflight-status-1.0.0.vsix
 
 # Install the VSIX file (use the exact filename from ls command)
+# This will UPDATE the extension if already installed
 # For VS Code:
-code --install-extension preflight-status-1.0.0.vsix
+code --install-extension preflight-status-1.0.0.vsix --force
 
 # For Cursor:
-cursor --install-extension preflight-status-1.0.0.vsix
+cursor --install-extension preflight-status-1.0.0.vsix --force
 ```
+
+**Note:** The `--force` flag ensures the extension is updated even if already installed.
 
 ### 4. Reload IDE
 
@@ -91,7 +131,7 @@ Tell the user to reload their VS Code/Cursor window:
 - Press `Cmd+Shift+P` (Mac) or `Ctrl+Shift+P` (Windows/Linux)
 - Type "Reload Window" and press Enter
 
-### 5. Verify Installation
+### 5. Verify Installation & Latest Version
 
 Check that:
 - ✅ `scripts/preflight-check.ts` exists
@@ -103,6 +143,78 @@ Check that:
 - ✅ Extension appears in VS Code/Cursor sidebar (Preflight Status icon)
 - ✅ Status bar shows preflight status
 - ✅ Service connectors are working (check the "Service Connections" view in the extension)
+
+**Verify Latest Version:**
+```bash
+# Check the dashboard has latest features (service logos, etc.)
+cd /path/to/user/project
+grep -c "SERVICE_LOGO_MAP" preflight-dashboard.html
+# Should return 1 or more (indicates logo support is present)
+
+# Check extension version
+cd /tmp/preflight-setup/extension
+grep '"version"' package.json
+# Verify this matches the latest on GitHub
+
+# Check for latest logos
+ls extension/resources/logos/*.svg 2>/dev/null | wc -l
+# Should show: 15 (or more as new logos are added)
+```
+
+## Keeping Preflight Updated
+
+**After initial setup**, periodically update to get latest features:
+
+### Update Dashboard & Scripts
+
+```bash
+# In your project directory where preflight is installed
+cd /path/to/your/project
+
+# Pull latest from preflight repo
+cd /tmp/preflight-setup  # or wherever you cloned it
+git pull origin main
+
+# Re-run setup to update scripts and dashboard
+npx tsx /tmp/preflight-setup/src/setup.ts
+
+# This updates:
+# - preflight-dashboard.html (gets latest logos, features)
+# - scripts/preflight-check.ts (latest check logic)
+# - scripts/serve-dashboard.ts (latest server features)
+```
+
+### Update Extension
+
+```bash
+# Navigate to preflight repo
+cd /tmp/preflight-setup
+git pull origin main
+
+# Rebuild and reinstall extension
+cd extension
+npm install
+npm run compile
+npm run package
+
+# Reinstall (--force updates existing installation)
+code --install-extension preflight-status-*.vsix --force
+# or for Cursor:
+cursor --install-extension preflight-status-*.vsix --force
+
+# Reload IDE window (Cmd+Shift+P → "Reload Window")
+```
+
+### Quick Update Check
+
+```bash
+# See what's new in the latest version
+cd /tmp/preflight-setup
+git log --oneline -5  # See last 5 commits
+git pull origin main  # Pull latest
+```
+
+**Tip:** Check https://github.com/enoteware/preflight/commits/main regularly for updates.
 
 ## Installation
 
