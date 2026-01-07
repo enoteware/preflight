@@ -6,3 +6,6 @@ dist/
 .env.local
 *.pid
 *.port
+scripts/preflight-check.ts.backup
+preflight-status.json
+scripts/preflight-validators/
