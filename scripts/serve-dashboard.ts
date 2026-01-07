@@ -6,16 +6,97 @@
  * Or: npm run preflight:dashboard
  */
 
-import { createServer } from 'http';
+import { createServer, Server } from 'http';
 import { readFileSync, existsSync, writeFileSync } from 'fs';
-import { join, extname } from 'path';
+import { join, extname, basename } from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 
-const PORT = process.env.PORT || 8080;
+const DEFAULT_PORT = 8080;
 const ROOT = process.cwd();
+
+interface RepoInfo {
+  name: string;
+  githubUrl?: string;
+  description?: string;
+  version?: string;
+}
+
+// Check if port is available by trying to create a server
+function isPortAvailable(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const testServer = createServer();
+    testServer.listen(port, () => {
+      testServer.close(() => {
+        resolve(true); // Port is available
+      });
+    });
+    testServer.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EADDRINUSE') {
+        resolve(false); // Port is in use
+      } else {
+        resolve(false); // Other error, assume port is in use
+      }
+    });
+  });
+}
+
+// Find available port starting from default
+async function findAvailablePort(startPort: number = DEFAULT_PORT): Promise<number> {
+  for (let port = startPort; port < startPort + 100; port++) {
+    if (await isPortAvailable(port)) {
+      return port;
+    }
+  }
+  throw new Error(`No available ports found in range ${startPort}-${startPort + 100}`);
+}
+
+// Get repository information
+async function getRepoInfo(): Promise<RepoInfo> {
+  const info: RepoInfo = {
+    name: basename(ROOT),
+  };
+
+  // Try to get info from package.json
+  const packageJsonPath = join(ROOT, 'package.json');
+  if (existsSync(packageJsonPath)) {
+    try {
+      const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+      if (packageJson.name) info.name = packageJson.name;
+      if (packageJson.description) info.description = packageJson.description;
+      if (packageJson.version) info.version = packageJson.version;
+      if (packageJson.repository?.url) {
+        // Extract GitHub URL from various formats
+        const repoUrl = packageJson.repository.url;
+        if (repoUrl.includes('github.com')) {
+          info.githubUrl = repoUrl.replace(/^git\+/, '').replace(/\.git$/, '');
+        }
+      }
+    } catch (error) {
+      // Ignore errors
+    }
+  }
+
+  // Try to get GitHub URL from git remote
+  if (!info.githubUrl) {
+    try {
+      const { stdout } = await execAsync('git remote get-url origin', { cwd: ROOT });
+      const remoteUrl = stdout.trim();
+      if (remoteUrl.includes('github.com')) {
+        // Convert SSH or HTTPS to HTTPS URL
+        info.githubUrl = remoteUrl
+          .replace(/^git@github.com:/, 'https://github.com/')
+          .replace(/\.git$/, '');
+      }
+    } catch (error) {
+      // Ignore errors - might not be a git repo
+    }
+  }
+
+  return info;
+}
 
 const MIME_TYPES: Record<string, string> = {
   '.html': 'text/html',
@@ -64,8 +145,29 @@ async function generateStatusJson(): Promise<string> {
   }
 }
 
+// Get repo info once at startup
+let repoInfo: RepoInfo;
+let serverPort: number;
+
 const server = createServer(async (req, res) => {
   const url = req.url || '/';
+  
+  // Handle repo info endpoint
+  if (url === '/repo-info.json') {
+    try {
+      const info = await getRepoInfo();
+      res.writeHead(200, { 
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+      });
+      res.end(JSON.stringify({ ...info, port: serverPort }));
+      return;
+    } catch (error) {
+      res.writeHead(500);
+      res.end('Error getting repo info');
+      return;
+    }
+  }
   
   // Handle status JSON endpoint
   if (url === '/preflight-status.json' || url === '/status.json') {
@@ -109,7 +211,60 @@ const server = createServer(async (req, res) => {
   const contentType = MIME_TYPES[ext] || 'text/plain';
   
   try {
-    const content = readFileSync(filePath);
+    let content = readFileSync(filePath, 'utf-8');
+    
+    // Inject repo info and port into dashboard HTML
+    if (ext === '.html' && content.includes('<!-- REPO_INFO_PLACEHOLDER -->')) {
+      const info = await getRepoInfo();
+      const versionText = info.version ? ` v${info.version}` : '';
+      const githubLink = info.githubUrl ? `<div style="font-size: 13px; color: #86868b; margin-bottom: 8px;">
+            <strong style="color: #1d1d1f;">Repository:</strong> <a href="${info.githubUrl}" target="_blank" style="color: #007aff; text-decoration: none;">${info.githubUrl}</a>
+          </div>` : '';
+      const descriptionText = info.description ? `<div style="font-size: 13px; color: #86868b; margin-bottom: 8px;">
+            ${info.description}
+          </div>` : '';
+      
+      const infoHtml = [
+        '<div class="repo-info" style="margin-top: 24px; padding-top: 24px; border-top: 0.5px solid rgba(0, 0, 0, 0.1);">',
+        `<div style="font-size: 13px; color: #86868b; margin-bottom: 8px;">`,
+        `<strong style="color: #1d1d1f;">Project:</strong> ${info.name}${versionText}`,
+        '</div>',
+        githubLink,
+        descriptionText,
+        `<div style="font-size: 13px; color: #86868b; margin-bottom: 12px;">`,
+        `<strong style="color: #1d1d1f;">Server:</strong> Running on port ${serverPort}`,
+        '</div>',
+        '<div style="font-size: 13px; color: #86868b;">',
+        '<strong style="color: #1d1d1f;">Documentation:</strong>',
+        '<div style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 12px;">',
+        '<a href="https://github.com/enoteware/preflight/blob/main/docs/SERVICE_RESOURCES.md" target="_blank" style="color: #007aff; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">',
+        '<svg style="width: 14px; height: 14px;" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">',
+        '<path d="M8 12H8.01M8 8C8 6.34315 9.34315 5 11 5C12.6569 5 14 6.34315 14 8C14 9.65685 12.6569 11 11 11H8V8Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/>',
+        '<path d="M8 1C4.13401 1 1 4.13401 1 8C1 11.866 4.13401 15 8 15C11.866 15 15 11.866 15 8C15 4.13401 11.866 1 8 1Z" stroke="currentColor" stroke-width="1.5" fill="none"/>',
+        '</svg>',
+        'Service Resources',
+        '</a>',
+        '<a href="https://github.com/enoteware/preflight/blob/main/docs/COMMON_SERVICES.md" target="_blank" style="color: #007aff; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">',
+        '<svg style="width: 14px; height: 14px;" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">',
+        '<path d="M8 12H8.01M8 8C8 6.34315 9.34315 5 11 5C12.6569 5 14 6.34315 14 8C14 9.65685 12.6569 11 11 11H8V8Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/>',
+        '<path d="M8 1C4.13401 1 1 4.13401 1 8C1 11.866 4.13401 15 8 15C11.866 15 15 11.866 15 8C15 4.13401 11.866 1 8 1Z" stroke="currentColor" stroke-width="1.5" fill="none"/>',
+        '</svg>',
+        'Common Services',
+        '</a>',
+        '<a href="https://github.com/enoteware/preflight/blob/main/docs/AGENT_INSTRUCTIONS.md" target="_blank" style="color: #007aff; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">',
+        '<svg style="width: 14px; height: 14px;" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">',
+        '<path d="M8 12H8.01M8 8C8 6.34315 9.34315 5 11 5C12.6569 5 14 6.34315 14 8C14 9.65685 12.6569 11 11 11H8V8Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/>',
+        '<path d="M8 1C4.13401 1 1 4.13401 1 8C1 11.866 4.13401 15 8 15C11.866 15 15 11.866 15 8C15 4.13401 11.866 1 8 1Z" stroke="currentColor" stroke-width="1.5" fill="none"/>',
+        '</svg>',
+        'Agent Instructions',
+        '</a>',
+        '</div>',
+        '</div>',
+        '</div>',
+      ].join('\n');
+      content = content.replace('<!-- REPO_INFO_PLACEHOLDER -->', infoHtml);
+    }
+    
     res.writeHead(200, { 'Content-Type': contentType });
     res.end(content);
   } catch (error) {
@@ -118,10 +273,40 @@ const server = createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`\n🚀 Preflight Dashboard Server`);
-  console.log(`   URL: http://localhost:${PORT}`);
-  console.log(`   Dashboard: http://localhost:${PORT}/preflight-dashboard.html`);
-  console.log(`   Status API: http://localhost:${PORT}/preflight-status.json`);
-  console.log(`\n   Press Ctrl+C to stop\n`);
+// Start server on available port
+async function startServer() {
+  const requestedPort = process.env.PORT ? parseInt(process.env.PORT, 10) : DEFAULT_PORT;
+  serverPort = await findAvailablePort(requestedPort);
+  
+  repoInfo = await getRepoInfo();
+  
+  server.listen(serverPort, () => {
+    console.log(`\n🚀 Preflight Dashboard Server`);
+    console.log(`   Project: ${repoInfo.name}${repoInfo.version ? ` v${repoInfo.version}` : ''}`);
+    if (repoInfo.githubUrl) {
+      console.log(`   Repository: ${repoInfo.githubUrl}`);
+    }
+    if (serverPort !== requestedPort) {
+      console.log(`   ⚠️  Port ${requestedPort} was in use, using port ${serverPort} instead`);
+    }
+    console.log(`   URL: http://localhost:${serverPort}`);
+    console.log(`   Dashboard: http://localhost:${serverPort}/preflight-dashboard.html`);
+    console.log(`   Status API: http://localhost:${serverPort}/preflight-status.json`);
+    console.log(`\n   Press Ctrl+C to stop\n`);
+  });
+  
+  server.on('error', (error: NodeJS.ErrnoException) => {
+    if (error.code === 'EADDRINUSE') {
+      console.error(`\n❌ Port ${serverPort} is already in use.`);
+      console.error(`   Try setting a different port: PORT=8081 npx tsx scripts/serve-dashboard.ts\n`);
+    } else {
+      console.error('Server error:', error);
+    }
+    process.exit(1);
+  });
+}
+
+startServer().catch((error) => {
+  console.error('Failed to start server:', error);
+  process.exit(1);
 });

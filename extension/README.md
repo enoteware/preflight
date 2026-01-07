@@ -35,6 +35,7 @@ Real-time API health and environment status monitoring for VSCode/Cursor.
 - `preflight.refreshInterval` - Refresh interval in seconds (default: 10, min: 5)
 - `preflight.showInStatusBar` - Show status in status bar (default: true)
 - `preflight.quickMode` - Use quick mode, skip slow checks (default: true)
+- `preflight.autoStartDashboard` - Automatically start dashboard server on VS Code launch (default: true)
 - `preflight.categoryOverrides` - Override check categories with regex patterns (default: {})
 - `preflight.envFiles` - List of env files to search for variables (default: [".env.local", ".env", ".env.development"])
 
@@ -70,6 +71,29 @@ The extension will:
 - Scan these files for variable definitions
 - Add clickable links to open files at specific lines
 - Show file location in tooltips: "📄 Found in: .env.local:23"
+
+#### Auto-Start Dashboard Server
+The extension can automatically start the dashboard HTTP server when VS Code launches:
+
+```json
+{
+  "preflight.autoStartDashboard": true
+}
+```
+
+When enabled:
+- Server starts automatically on extension activation
+- Runs on port 8080 (or `PORT` env var)
+- Accessible at `http://localhost:8080/preflight-dashboard.html`
+- Server stops automatically when VS Code closes
+- If server is already running externally, extension won't start a duplicate
+
+To disable auto-start:
+```json
+{
+  "preflight.autoStartDashboard": false
+}
+```
 
 See [docs/EXTENSION_CONFIG.md](../docs/EXTENSION_CONFIG.md) for detailed configuration guide.
 

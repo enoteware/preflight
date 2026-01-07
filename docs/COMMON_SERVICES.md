@@ -17,6 +17,21 @@ A service check should:
 
 This ensures your API keys are **actually working**, not just configured.
 
+## Documentation Resources
+
+For detailed setup guides, API references, and CLI documentation for these services, see [SERVICE_RESOURCES.md](SERVICE_RESOURCES.md).
+
+**Quick Reference:**
+
+| Service | Documentation | Setup Guide | API Reference |
+|---------|--------------|-------------|---------------|
+| Supabase | [docs](https://supabase.com/docs) | [Quickstart](https://supabase.com/docs/guides/getting-started) | [API Reference](https://supabase.com/docs/reference/javascript/introduction) |
+| Resend | [docs](https://resend.com/docs) | [Node.js Setup](https://resend.com/docs/send-with-nodejs) | [API Reference](https://resend.com/docs/api-reference) |
+| Vercel API | [docs](https://vercel.com/docs/rest-api) | [Authentication](https://vercel.com/docs/rest-api/authentication) | [API Reference](https://vercel.com/docs/rest-api) |
+| Klaviyo | [docs](https://developers.klaviyo.com) | [Developer Guide](https://developers.klaviyo.com/en/docs/developer-guide) | [API Reference](https://developers.klaviyo.com/en/reference/api-overview) |
+| Redis/Upstash | [docs](https://upstash.com/docs) | [Getting Started](https://upstash.com/docs/redis/overall/getstarted) | [REST API](https://upstash.com/docs/redis/features/restapi) |
+| YouTube API | [docs](https://developers.google.com/youtube/v3) | [Getting Started](https://developers.google.com/youtube/v3/getting-started) | [API Reference](https://developers.google.com/youtube/v3/docs) |
+
 ## Pattern
 
 All service checks follow this pattern:
@@ -99,6 +114,8 @@ export async function checkServiceName(): Promise<CheckResult> {
 
 ### Supabase
 
+📚 **Documentation**: [Setup Guide](https://supabase.com/docs/guides/getting-started) | [API Reference](https://supabase.com/docs/reference/javascript/introduction) | [Full Docs](https://supabase.com/docs)
+
 ```typescript
 export async function checkSupabase(): Promise<CheckResult> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -153,6 +170,8 @@ export async function checkSupabase(): Promise<CheckResult> {
 ```
 
 ### Resend (Email)
+
+📚 **Documentation**: [Setup Guide](https://resend.com/docs/send-with-nodejs) | [API Reference](https://resend.com/docs/api-reference) | [Full Docs](https://resend.com/docs)
 
 ```typescript
 export async function checkResend(): Promise<CheckResult> {
@@ -234,6 +253,8 @@ export async function checkResend(): Promise<CheckResult> {
 
 ### Vercel API
 
+📚 **Documentation**: [Setup Guide](https://vercel.com/docs/rest-api/authentication) | [API Reference](https://vercel.com/docs/rest-api) | [CLI Docs](https://vercel.com/docs/cli)
+
 ```typescript
 export async function checkVercelAPI(): Promise<CheckResult> {
   const token = process.env.VERCEL_ACCESS_TOKEN || process.env.VERCEL_TOKEN;
@@ -296,6 +317,8 @@ export async function checkVercelAPI(): Promise<CheckResult> {
 
 ### Klaviyo
 
+📚 **Documentation**: [Setup Guide](https://developers.klaviyo.com/en/docs/developer-guide) | [API Reference](https://developers.klaviyo.com/en/reference/api-overview) | [Full Docs](https://developers.klaviyo.com)
+
 ```typescript
 export async function checkKlaviyo(): Promise<CheckResult> {
   const apiKey = process.env.KLAVIYO_API_KEY;
@@ -357,6 +380,8 @@ export async function checkKlaviyo(): Promise<CheckResult> {
 
 ### Redis/Upstash
 
+📚 **Documentation**: [Setup Guide](https://upstash.com/docs/redis/overall/getstarted) | [REST API](https://upstash.com/docs/redis/features/restapi) | [Full Docs](https://upstash.com/docs)
+
 ```typescript
 export async function checkRedis(): Promise<CheckResult> {
   const redisUrl = process.env.REDIS_URL;
@@ -410,6 +435,8 @@ export async function checkRedis(): Promise<CheckResult> {
 ```
 
 ### YouTube API
+
+📚 **Documentation**: [Setup Guide](https://developers.google.com/youtube/v3/getting-started) | [API Reference](https://developers.google.com/youtube/v3/docs) | [Full Docs](https://developers.google.com/youtube/v3)
 
 ```typescript
 export async function checkYouTubeAPI(): Promise<CheckResult> {

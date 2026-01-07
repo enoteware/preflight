@@ -8,12 +8,16 @@ import { PreflightTreeDataProvider, CheckTreeItem } from './treeDataProvider';
 import { PreflightStatusBar } from './statusBar';
 import { runPreflightChecks } from './checkRunner';
 import { DashboardProvider } from './dashboardProvider';
+import { spawn, ChildProcess } from 'child_process';
+import { join } from 'path';
+import { existsSync } from 'fs';
 
 let statusBar: PreflightStatusBar;
 let checksProvider: PreflightTreeDataProvider;
 let servicesProvider: PreflightTreeDataProvider;
 let refreshTimer: NodeJS.Timeout | undefined;
 let refreshInProgress = false;
+let dashboardServerProcess: ChildProcess | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('Preflight Status extension activated');
@@ -100,6 +104,12 @@ export function activate(context: vscode.ExtensionContext) {
     startAutoRefresh(refreshInterval);
   }
 
+  // Start dashboard server if enabled
+  const autoStartDashboard = config.get<boolean>('autoStartDashboard', true);
+  if (autoStartDashboard) {
+    startDashboardServer(context);
+  }
+
   // Listen for configuration changes
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
@@ -107,6 +117,7 @@ export function activate(context: vscode.ExtensionContext) {
         const newConfig = vscode.workspace.getConfiguration('preflight');
         const newAutoRefresh = newConfig.get<boolean>('autoRefresh', true);
         const newInterval = Math.max(newConfig.get<number>('refreshInterval', 10), 5);
+        const newAutoStartDashboard = newConfig.get<boolean>('autoStartDashboard', true);
 
         if (refreshTimer) {
           clearInterval(refreshTimer);
@@ -114,6 +125,13 @@ export function activate(context: vscode.ExtensionContext) {
 
         if (newAutoRefresh) {
           startAutoRefresh(newInterval);
+        }
+
+        // Handle dashboard server auto-start changes
+        if (newAutoStartDashboard && !dashboardServerProcess) {
+          startDashboardServer(context);
+        } else if (!newAutoStartDashboard && dashboardServerProcess) {
+          stopDashboardServer();
         }
       }
     })
@@ -180,8 +198,83 @@ async function runCheckWithProgress() {
   );
 }
 
+function startDashboardServer(context: vscode.ExtensionContext) {
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+  if (!workspaceFolder) {
+    return;
+  }
+
+  // Check if server script exists
+  const serverScriptPath = join(workspaceFolder.uri.fsPath, 'scripts', 'serve-dashboard.ts');
+  if (!existsSync(serverScriptPath)) {
+    console.log('Dashboard server script not found, skipping auto-start');
+    return;
+  }
+
+  // Check if server is already running
+  if (dashboardServerProcess && !dashboardServerProcess.killed) {
+    console.log('Dashboard server already running');
+    return;
+  }
+
+  // Check if port is already in use (simple check)
+  const port = process.env.PORT || '8080';
+  
+  try {
+    console.log('Starting dashboard server...');
+    dashboardServerProcess = spawn('npx', ['tsx', serverScriptPath], {
+      cwd: workspaceFolder.uri.fsPath,
+      stdio: 'pipe',
+      shell: true,
+    });
+
+    dashboardServerProcess.stdout?.on('data', (data) => {
+      console.log(`[Dashboard Server] ${data.toString().trim()}`);
+    });
+
+    dashboardServerProcess.stderr?.on('data', (data) => {
+      const error = data.toString().trim();
+      // Ignore port already in use errors (server might already be running externally)
+      if (!error.includes('EADDRINUSE')) {
+        console.error(`[Dashboard Server] ${error}`);
+      }
+    });
+
+    dashboardServerProcess.on('exit', (code) => {
+      if (code !== 0 && code !== null) {
+        console.log(`Dashboard server exited with code ${code}`);
+      }
+      dashboardServerProcess = undefined;
+    });
+
+    dashboardServerProcess.on('error', (error) => {
+      console.error('Failed to start dashboard server:', error);
+      dashboardServerProcess = undefined;
+    });
+
+    // Clean up on extension deactivation
+    context.subscriptions.push(
+      new vscode.Disposable(() => {
+        stopDashboardServer();
+      })
+    );
+  } catch (error) {
+    console.error('Error starting dashboard server:', error);
+    dashboardServerProcess = undefined;
+  }
+}
+
+function stopDashboardServer() {
+  if (dashboardServerProcess && !dashboardServerProcess.killed) {
+    console.log('Stopping dashboard server...');
+    dashboardServerProcess.kill();
+    dashboardServerProcess = undefined;
+  }
+}
+
 export function deactivate() {
   if (refreshTimer) {
     clearInterval(refreshTimer);
   }
+  stopDashboardServer();
 }

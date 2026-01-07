@@ -524,334 +524,548 @@ function createDashboard(project: ProjectInfo) {
       padding: 0;
       box-sizing: border-box;
     }
-    
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      background: #f5f5f7;
       min-height: 100vh;
-      padding: 20px;
+      padding: 0;
+      color: #1d1d1f;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
     
     .container {
       max-width: 1200px;
       margin: 0 auto;
+      padding: 40px 20px;
     }
-    
+
+    header {
+      background: #ffffff;
+      border-radius: 18px;
+      padding: 40px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      border: 0.5px solid rgba(0, 0, 0, 0.1);
+    }
+
     h1 {
-      color: white;
-      text-align: center;
-      margin-bottom: 30px;
-      font-size: 2.5em;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+      font-size: 48px;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+      color: #1d1d1f;
+      line-height: 1.1;
     }
-    
+
     .status-bar {
-      background: white;
-      border-radius: 10px;
-      padding: 20px;
-      margin-bottom: 20px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      display: flex;
-      justify-content: space-around;
-      align-items: center;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-top: 32px;
     }
-    
-    .stat {
+
+    .status-item {
+      padding: 20px;
+      background: #f5f5f7;
+      border-radius: 12px;
       text-align: center;
+      border: 0.5px solid rgba(0, 0, 0, 0.06);
+      transition: all 0.2s ease;
     }
-    
-    .stat-value {
-      font-size: 2em;
-      font-weight: bold;
-      color: #667eea;
+
+    .status-item:hover {
+      background: #e8e8ed;
+      transform: translateY(-1px);
     }
-    
-    .stat-label {
-      color: #666;
-      font-size: 0.9em;
-      margin-top: 5px;
+
+    .status-item .label {
+      font-size: 13px;
+      font-weight: 400;
+      color: #86868b;
+      margin-bottom: 8px;
+      letter-spacing: -0.1px;
     }
-    
+
+    .status-item .value {
+      font-size: 32px;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+      line-height: 1;
+    }
+
+    .status-item.total .value { color: #1d1d1f; }
+    .status-item.ok .value { color: #30d158; }
+    .status-item.warning .value { color: #ff9f0a; }
+    .status-item.error .value { color: #ff453a; }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 980px;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 400;
+      letter-spacing: -0.1px;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+
+    .btn-primary {
+      background: #007aff;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #0051d5;
+      transform: scale(1.02);
+    }
+
+    .btn-primary:active {
+      transform: scale(0.98);
+    }
+
+    .btn-secondary {
+      background: #f5f5f7;
+      color: #1d1d1f;
+      border: 0.5px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .btn-secondary:hover {
+      background: #e8e8ed;
+      transform: scale(1.02);
+    }
+
+    .btn-secondary:active {
+      transform: scale(0.98);
+    }
+
+    .last-updated {
+      margin-top: 16px;
+      color: #86868b;
+      font-size: 13px;
+      font-weight: 400;
+      letter-spacing: -0.1px;
+    }
+
+    .categories {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+      gap: 16px;
+      margin-top: 24px;
+    }
+
     .category {
-      background: white;
-      border-radius: 10px;
-      padding: 20px;
-      margin-bottom: 20px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      background: #ffffff;
+      border-radius: 18px;
+      padding: 32px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      border: 0.5px solid rgba(0, 0, 0, 0.1);
     }
-    
-    .category-title {
-      font-size: 1.5em;
-      font-weight: bold;
-      margin-bottom: 15px;
-      color: #333;
+
+    .category h2 {
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 0.5px solid rgba(0, 0, 0, 0.1);
+      color: #1d1d1f;
       display: flex;
       align-items: center;
-      gap: 10px;
     }
-    
+
     .check-item {
-      padding: 15px;
-      margin: 10px 0;
-      border-radius: 8px;
-      border-left: 4px solid;
-      background: #f8f9fa;
-      transition: all 0.3s ease;
+      padding: 16px 20px;
+      margin-bottom: 8px;
+      border-radius: 12px;
+      border-left: 3px solid;
+      background: #f5f5f7;
+      transition: all 0.2s ease;
+      border: 0.5px solid rgba(0, 0, 0, 0.06);
     }
-    
+
     .check-item:hover {
-      transform: translateX(5px);
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      transform: translateX(2px);
+      background: #e8e8ed;
     }
-    
+
     .check-item.ok {
-      border-left-color: #10b981;
-      background: #ecfdf5;
+      border-left-color: #30d158;
+      background: #f0fdf4;
     }
-    
+
+    .check-item.ok:hover {
+      background: #dcfce7;
+    }
+
     .check-item.warning {
-      border-left-color: #f59e0b;
-      background: #fffbeb;
+      border-left-color: #ff9f0a;
+      background: #fffbf0;
     }
-    
+
+    .check-item.warning:hover {
+      background: #fff4e0;
+    }
+
     .check-item.error {
-      border-left-color: #ef4444;
-      background: #fef2f2;
+      border-left-color: #ff453a;
+      background: #fff5f5;
     }
-    
+
+    .check-item.error:hover {
+      background: #ffe5e5;
+    }
+
     .check-header {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      gap: 0;
       margin-bottom: 5px;
     }
-    
-    .check-status {
-      font-size: 1.2em;
-      font-weight: bold;
+
+    .check-icon {
+      width: 12px;
+      height: 12px;
+      flex-shrink: 0;
+      margin-right: 8px;
     }
-    
-    .check-status.ok { color: #10b981; }
-    .check-status.warning { color: #f59e0b; }
-    .check-status.error { color: #ef4444; }
-    
+
+    .status-icon {
+      width: 20px;
+      height: 20px;
+      margin-right: 8px;
+      flex-shrink: 0;
+    }
+
+    .category-icon {
+      width: 24px;
+      height: 24px;
+      margin-right: 12px;
+      flex-shrink: 0;
+    }
+
+    .button-icon {
+      width: 16px;
+      height: 16px;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
     .check-message {
-      color: #666;
-      margin-top: 5px;
+      font-weight: 400;
+      font-size: 15px;
+      letter-spacing: -0.1px;
+      flex: 1;
+      color: #1d1d1f;
     }
-    
+
+    .check-latency {
+      color: #86868b;
+      font-size: 13px;
+      font-weight: 400;
+      letter-spacing: -0.1px;
+    }
+
     .check-details {
-      color: #888;
-      font-size: 0.9em;
-      margin-top: 5px;
+      color: #86868b;
+      font-size: 13px;
+      font-weight: 400;
+      letter-spacing: -0.1px;
+      margin-top: 8px;
+      padding-left: 28px;
+      line-height: 1.4;
     }
-    
+
     .check-help {
-      color: #667eea;
-      text-decoration: none;
-      font-size: 0.9em;
-      margin-top: 5px;
-      display: inline-block;
+      margin-top: 8px;
+      padding-left: 28px;
     }
-    
-    .check-help:hover {
+
+    .check-help a {
+      color: #007aff;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 400;
+      letter-spacing: -0.1px;
+      transition: color 0.2s ease;
+    }
+
+    .check-help a:hover {
+      color: #0051d5;
       text-decoration: underline;
     }
-    
-    .heartbeat {
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      margin-right: 8px;
-      animation: pulse 2s infinite;
-    }
-    
-    .heartbeat.ok {
-      background: #10b981;
-    }
-    
-    .heartbeat.warning {
-      background: #f59e0b;
-    }
-    
-    .heartbeat.error {
-      background: #ef4444;
-    }
-    
-    @keyframes pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.5; transform: scale(1.2); }
-    }
-    
-    .last-update {
-      text-align: center;
-      color: white;
-      margin-top: 20px;
-      font-size: 0.9em;
-    }
-    
+
     .loading {
       text-align: center;
-      color: white;
-      font-size: 1.2em;
-      padding: 40px;
+      padding: 60px 40px;
+      color: #86868b;
+      font-size: 17px;
+      font-weight: 400;
+      letter-spacing: -0.2px;
+    }
+
+    .pulse {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.5;
+      }
+    }
+
+    .auto-refresh {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 16px;
+    }
+
+    .auto-refresh label {
+      font-size: 13px;
+      font-weight: 400;
+      color: #86868b;
+      letter-spacing: -0.1px;
+      cursor: pointer;
+    }
+
+    .auto-refresh input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      accent-color: #007aff;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>🔍 Preflight Check Dashboard</h1>
-    
-    <div class="status-bar">
-      <div class="stat">
-        <div class="stat-value" id="total-checks">-</div>
-        <div class="stat-label">Total Checks</div>
+    <header>
+      <h1>Preflight Check</h1>
+      <div class="controls">
+        <button class="btn-primary" onclick="refreshChecks()">
+          <svg class="button-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M8 2V6M8 10V14M2 8H6M10 8H14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <path d="M13.657 2.343C12.146 0.832 10.137 0 8 0C5.863 0 3.854 0.832 2.343 2.343C0.832 3.854 0 5.863 0 8C0 10.137 0.832 12.146 2.343 13.657C3.854 15.168 5.863 16 8 16C10.137 16 12.146 15.168 13.657 13.657C15.168 12.146 16 10.137 16 8C16 5.863 15.168 3.854 13.657 2.343Z" stroke="currentColor" stroke-width="1.5" fill="none"/>
+          </svg>
+          Refresh
+        </button>
+        <button class="btn-secondary" onclick="toggleAutoRefresh()">
+          <svg class="button-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5" fill="none"/>
+            <path d="M8 4V8L10.5 10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          Auto-refresh
+        </button>
       </div>
-      <div class="stat">
-        <div class="stat-value" id="ok-checks" style="color: #10b981;">-</div>
-        <div class="stat-label">Passing</div>
+      <div class="auto-refresh">
+        <input type="checkbox" id="autoRefresh" checked onchange="toggleAutoRefresh()">
+        <label for="autoRefresh">Auto-refresh every 10 seconds</label>
       </div>
-      <div class="stat">
-        <div class="stat-value" id="warning-checks" style="color: #f59e0b;">-</div>
-        <div class="stat-label">Warnings</div>
+      <div class="last-updated" id="lastUpdated">Loading...</div>
+      <div class="status-bar">
+        <div class="status-item total">
+          <div class="label">Total Checks</div>
+          <div class="value" id="totalCount">-</div>
+        </div>
+        <div class="status-item ok">
+          <div class="label">
+            <svg class="status-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M16.707 5.293C17.098 5.684 17.098 6.316 16.707 6.707L8.707 14.707C8.316 15.098 7.684 15.098 7.293 14.707L3.293 10.707C2.902 10.316 2.902 9.684 3.293 9.293C3.684 8.902 4.316 8.902 4.707 9.293L8 12.586L15.293 5.293C15.684 4.902 16.316 4.902 16.707 5.293Z" fill="#30d158"/>
+            </svg>
+            Passing
+          </div>
+          <div class="value" id="okCount">-</div>
+        </div>
+        <div class="status-item warning">
+          <div class="label">
+            <svg class="status-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M10 6V10M10 14H10.01M19 10C19 14.9706 14.9706 19 10 19C5.02944 19 1 14.9706 1 10C1 5.02944 5.02944 1 10 1C14.9706 1 19 5.02944 19 10Z" stroke="#ff9f0a" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+            </svg>
+            Warnings
+          </div>
+          <div class="value" id="warningCount">-</div>
+        </div>
+        <div class="status-item error">
+          <div class="label">
+            <svg class="status-icon" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M10 10V6M10 10V14M19 10C19 14.9706 14.9706 19 10 19C5.02944 19 1 14.9706 1 10C1 5.02944 5.02944 1 10 1C14.9706 1 19 5.02944 19 10Z" stroke="#ff453a" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+              <path d="M10 6V10M10 10V14" stroke="#ff453a" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            Errors
+          </div>
+          <div class="value" id="errorCount">-</div>
+        </div>
       </div>
-      <div class="stat">
-        <div class="stat-value" id="error-checks" style="color: #ef4444;">-</div>
-        <div class="stat-label">Errors</div>
-      </div>
+    </header>
+
+    <div id="content" class="loading">
+      <div class="pulse">Loading checks...</div>
     </div>
     
-    <div id="content">
-      <div class="loading">Loading checks...</div>
-    </div>
-    
-    <div class="last-update" id="last-update">Last update: Never</div>
+    <!-- REPO_INFO_PLACEHOLDER -->
   </div>
-  
+
   <script>
-    let checkInterval;
-    
-    async function runChecks() {
+    let autoRefreshInterval = null;
+
+    async function refreshChecks() {
+      const content = document.getElementById('content');
+      content.innerHTML = '<div class="loading pulse">Running checks...</div>';
+
       try {
-        // Try to fetch from local JSON file (generated by npm run preflight:status)
-        const response = await fetch('preflight-status.json?' + Date.now());
+        // Run preflight check and get JSON output
+        const response = await fetch('/preflight-status.json');
+        let data;
+        
         if (response.ok) {
-          const data = await response.json();
-          updateDashboard(data);
-          return;
+          data = await response.json();
+        } else {
+          // If status.json doesn't exist, try running the script directly
+          // This requires a server that can execute the script
+          throw new Error('Status file not found. Make sure to run: npx tsx scripts/preflight-check.ts --json > preflight-status.json');
         }
-        throw new Error('No status file');
+
+        updateDashboard(data);
+        updateLastUpdated();
       } catch (error) {
-        // Show error state with instructions
-        document.getElementById('content').innerHTML = \`
+        content.innerHTML = \`
           <div class="category">
-            <div class="category-title">⚠️ Setup Required</div>
-            <div class="check-item warning">
+            <h2>Error</h2>
+            <div class="check-item error">
               <div class="check-header">
-                <span class="check-status warning">Status file not found</span>
+                <svg class="check-icon" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M6 3V6M6 9H6.01" stroke="#ff453a" stroke-width="1.5" stroke-linecap="round"/>
+                  <path d="M6 1C3.23858 1 1 3.23858 1 6C1 8.76142 3.23858 11 6 11C8.76142 11 11 8.76142 11 6C11 3.23858 8.76142 1 6 1Z" stroke="#ff453a" stroke-width="1.5" fill="none"/>
+                </svg>
+                <span class="check-message">Failed to load checks</span>
               </div>
-              <div class="check-message">Run this command to generate status:</div>
-              <div class="check-details" style="margin-top: 10px; font-family: monospace; background: #f0f0f0; padding: 10px; border-radius: 5px;">
-                npm run preflight:status
-              </div>
+              <div class="check-details">\${error.message}</div>
               <div class="check-details" style="margin-top: 10px;">
-                The dashboard will auto-refresh once the file is created.
+                <strong>To use this dashboard:</strong><br>
+                1. Run: <code>npx tsx scripts/preflight-check.ts --json > preflight-status.json</code><br>
+                2. Or start the dashboard server: <code>npx tsx scripts/serve-dashboard.ts</code>
               </div>
             </div>
           </div>
         \`;
       }
     }
-    
+
     function updateDashboard(data) {
       const content = document.getElementById('content');
-      content.innerHTML = '';
       
-      // Update stats
+      if (!data.summaries || data.summaries.length === 0) {
+        content.innerHTML = '<div class="loading">No checks found</div>';
+        return;
+      }
+
+      let html = '<div class="categories">';
+
+      // Category icons mapping
+      const categoryIcons = {
+        'CLI Tools': '<svg class="category-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" fill="none"/><path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" fill="none"/><path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" fill="none"/></svg>',
+        'Repository': '<svg class="category-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M12 6V12L16 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+        'Service Connections': '<svg class="category-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M8 12H16M12 8V16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+      };
+
+      for (const summary of data.summaries) {
+        const icon = categoryIcons[summary.category] || '<svg class="category-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" fill="none"/></svg>';
+        html += \`<div class="category">
+          <h2>\${icon}\${summary.category}</h2>\`;
+
+        for (const result of summary.results) {
+          const statusIcon = result.status === 'ok' 
+            ? '<svg class="check-icon" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 3L4.5 8.5L2 6" stroke="#30d158" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+            : result.status === 'warning'
+            ? '<svg class="check-icon" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 3V6M6 9H6.01" stroke="#ff9f0a" stroke-width="1.5" stroke-linecap="round"/><path d="M6 1C3.23858 1 1 3.23858 1 6C1 8.76142 3.23858 11 6 11C8.76142 11 11 8.76142 11 6C11 3.23858 8.76142 1 6 1Z" stroke="#ff9f0a" stroke-width="1.5" fill="none"/></svg>'
+            : '<svg class="check-icon" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 3V6M6 9H6.01" stroke="#ff453a" stroke-width="1.5" stroke-linecap="round"/><path d="M6 1C3.23858 1 1 3.23858 1 6C1 8.76142 3.23858 11 6 11C8.76142 11 11 8.76142 11 6C11 3.23858 8.76142 1 6 1Z" stroke="#ff453a" stroke-width="1.5" fill="none"/></svg>';
+          
+          const latency = result.latency ? \` <span class="check-latency">(\${result.latency}ms)</span>\` : '';
+          
+          html += \`
+            <div class="check-item \${result.status}">
+              <div class="check-header">
+                \${statusIcon}
+                <span class="check-message">\${result.message}</span>
+                \${latency}
+              </div>\`;
+
+          if (result.details) {
+            html += \`<div class="check-details">\${result.details}</div>\`;
+          }
+
+          if (result.helpUrl) {
+            html += \`<div class="check-help"><a href="\${result.helpUrl}" target="_blank">
+              <svg style="width: 14px; height: 14px; vertical-align: middle; margin-right: 4px;" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M8 12H8.01M8 8C8 6.34315 9.34315 5 11 5C12.6569 5 14 6.34315 14 8C14 9.65685 12.6569 11 11 11H8V8Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+                <path d="M8 1C4.13401 1 1 4.13401 1 8C1 11.866 4.13401 15 8 15C11.866 15 15 11.866 15 8C15 4.13401 11.866 1 8 1Z" stroke="currentColor" stroke-width="1.5" fill="none"/>
+              </svg>
+              Help</a></div>\`;
+          }
+
+          html += \`</div>\`;
+        }
+
+        html += \`</div>\`;
+      }
+
+      html += '</div>';
+      content.innerHTML = html;
+
+      // Update status counts
       let total = 0, ok = 0, warnings = 0, errors = 0;
-      
-      data.summaries.forEach(summary => {
-        summary.results.forEach(result => {
+      for (const summary of data.summaries) {
+        for (const result of summary.results) {
           total++;
           if (result.status === 'ok') ok++;
           else if (result.status === 'warning') warnings++;
-          else errors++;
-        });
-      });
-      
-      document.getElementById('total-checks').textContent = total;
-      document.getElementById('ok-checks').textContent = ok;
-      document.getElementById('warning-checks').textContent = warnings;
-      document.getElementById('error-checks').textContent = errors;
-      
-      // Render categories
-      data.summaries.forEach(summary => {
-        const categoryDiv = document.createElement('div');
-        categoryDiv.className = 'category';
-        
-        const title = document.createElement('div');
-        title.className = 'category-title';
-        title.textContent = \`📦 \${summary.category}\`;
-        categoryDiv.appendChild(title);
-        
-        summary.results.forEach(result => {
-          const checkDiv = document.createElement('div');
-          checkDiv.className = \`check-item \${result.status}\`;
-          
-          const heartbeat = document.createElement('span');
-          heartbeat.className = \`heartbeat \${result.status}\`;
-          heartbeat.title = 'Live';
-          
-          const header = document.createElement('div');
-          header.className = 'check-header';
-          header.innerHTML = \`
-            <span>
-              \${heartbeat.outerHTML}
-              <span class="check-status \${result.status}">\${result.message}</span>
-            </span>
-            \${result.latency ? \`<span style="color: #888; font-size: 0.9em;">\${result.latency}ms</span>\` : ''}
-          \`;
-          
-          checkDiv.appendChild(header);
-          
-          if (result.details) {
-            const details = document.createElement('div');
-            details.className = 'check-details';
-            details.textContent = result.details;
-            checkDiv.appendChild(details);
-          }
-          
-          if (result.helpUrl) {
-            const help = document.createElement('a');
-            help.className = 'check-help';
-            help.href = result.helpUrl;
-            help.target = '_blank';
-            help.textContent = '📖 Help';
-            checkDiv.appendChild(help);
-          }
-          
-          categoryDiv.appendChild(checkDiv);
-        });
-        
-        content.appendChild(categoryDiv);
-      });
-      
-      // Update timestamp
-      document.getElementById('last-update').textContent = 
-        \`Last update: \${new Date().toLocaleTimeString()}\`;
+          else if (result.status === 'error') errors++;
+        }
+      }
+
+      document.getElementById('totalCount').textContent = total;
+      document.getElementById('okCount').textContent = ok;
+      document.getElementById('warningCount').textContent = warnings;
+      document.getElementById('errorCount').textContent = errors;
     }
-    
+
+    function updateLastUpdated() {
+      const now = new Date();
+      document.getElementById('lastUpdated').textContent = 
+        \`Last updated: \${now.toLocaleTimeString()}\`;
+    }
+
+    function toggleAutoRefresh() {
+      const checkbox = document.getElementById('autoRefresh');
+      if (checkbox.checked) {
+        if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+        autoRefreshInterval = setInterval(refreshChecks, 10000);
+      } else {
+        if (autoRefreshInterval) {
+          clearInterval(autoRefreshInterval);
+          autoRefreshInterval = null;
+        }
+      }
+    }
+
     // Initial load
-    runChecks();
+    refreshChecks();
     
-    // Auto-refresh every 5 seconds
-    checkInterval = setInterval(runChecks, 5000);
-    
-    // Cleanup on page unload
-    window.addEventListener('beforeunload', () => {
-      if (checkInterval) clearInterval(checkInterval);
-    });
+    // Start auto-refresh if enabled
+    if (document.getElementById('autoRefresh').checked) {
+      toggleAutoRefresh();
+    }
   </script>
 </body>
 </html>

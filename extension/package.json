@@ -136,6 +136,11 @@
           "items": {
             "type": "string"
           }
+        },
+        "preflight.autoStartDashboard": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically start the dashboard server when VS Code launches"
         }
       }
     },

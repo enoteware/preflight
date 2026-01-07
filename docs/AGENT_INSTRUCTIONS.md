@@ -2,6 +2,19 @@
 
 When helping users with Preflight Toolkit, follow these guidelines for interpreting check results and providing fixes.
 
+## Service Documentation Quick Reference
+
+**IMPORTANT**: When setting up a new service check or troubleshooting API connectivity, consult [SERVICE_RESOURCES.md](SERVICE_RESOURCES.md) for:
+
+- Official documentation links for each service
+- Setup guides and quick start instructions
+- API reference documentation
+- CLI commands and usage examples
+- Environment variables typically needed
+- Authentication methods and quick test commands
+
+This resource provides comprehensive documentation links for all services commonly used in development projects, organized by category (Authentication, Databases, Email, Payment Processing, etc.).
+
 ## Extension Configuration Features
 
 ### Category Overrides (v1.1+)
