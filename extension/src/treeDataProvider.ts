@@ -77,6 +77,7 @@ export class PreflightTreeDataProvider
   > = this._onDidChangeTreeData.event;
 
   private checks: CheckData[] = [];
+  private isInitialized = false;
 
   constructor(private category: 'checks' | 'services') {}
 
@@ -86,6 +87,7 @@ export class PreflightTreeDataProvider
 
   updateChecks(checks: CheckData[]): void {
     this.checks = checks;
+    this.isInitialized = true;
     this.refresh();
   }
 
@@ -96,6 +98,17 @@ export class PreflightTreeDataProvider
   getChildren(element?: CheckTreeItem): Thenable<CheckTreeItem[]> {
     if (element) {
       return Promise.resolve([]);
+    }
+
+    // Show loading message on first load
+    if (!this.isInitialized) {
+      const loadingItem = new CheckTreeItem(
+        'Loading...',
+        'warning',
+        'Initializing preflight checks'
+      );
+      loadingItem.iconPath = new vscode.ThemeIcon('loading~spin');
+      return Promise.resolve([loadingItem]);
     }
 
     if (this.checks.length === 0) {

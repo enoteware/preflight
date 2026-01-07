@@ -3,7 +3,7 @@
   "name": "preflight-status",
   "displayName": "Preflight Status",
   "description": "Real-time API health and environment status monitoring",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "enoteware",
   "repository": {
     "type": "git",

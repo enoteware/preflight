@@ -20,10 +20,7 @@ let refreshInProgress = false;
 let dashboardServerProcess: ChildProcess | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
-  console.log('Preflight Status extension activated');
-  
-  // Show activation message
-  vscode.window.showInformationMessage('Preflight Status extension activated!');
+  console.log('Preflight Status extension activating...');
 
   // Initialize status bar
   statusBar = new PreflightStatusBar();
@@ -102,23 +99,48 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  // Initial check
-  refreshChecks();
-
-  // Set up auto-refresh
+  // Get configuration
   const config = vscode.workspace.getConfiguration('preflight');
   const autoRefresh = config.get<boolean>('autoRefresh', true);
   const refreshInterval = Math.max(config.get<number>('refreshInterval', 10), 5);
-
-  if (autoRefresh) {
-    startAutoRefresh(refreshInterval);
-  }
-
-  // Start dashboard server if enabled
   const autoStartDashboard = config.get<boolean>('autoStartDashboard', true);
-  if (autoStartDashboard) {
-    startDashboardServer(context);
-  }
+
+  // Delayed initialization to ensure VS Code is fully ready
+  // This prevents race conditions during early activation
+  console.log('Scheduling delayed initialization...');
+  const initTimeout = setTimeout(async () => {
+    try {
+      // Verify workspace is ready
+      if (!vscode.workspace.workspaceFolders?.[0]) {
+        console.log('No workspace folder available, skipping initial check');
+        return;
+      }
+
+      console.log('Preflight Status extension fully initialized');
+      
+      // Run initial check
+      await refreshChecks();
+
+      // Set up auto-refresh
+      if (autoRefresh) {
+        startAutoRefresh(refreshInterval);
+      }
+
+      // Start dashboard server if enabled
+      if (autoStartDashboard) {
+        startDashboardServer(context);
+      }
+    } catch (error) {
+      console.error('Error during delayed initialization:', error);
+    }
+  }, 1500); // 1.5 second delay to ensure VS Code UI is ready
+
+  // Clean up timeout on deactivation
+  context.subscriptions.push(
+    new vscode.Disposable(() => {
+      clearTimeout(initTimeout);
+    })
+  );
 
   // Listen for configuration changes
   context.subscriptions.push(
@@ -161,6 +183,18 @@ async function refreshChecks() {
     return;
   }
   
+  // Check workspace readiness
+  if (!vscode.workspace.workspaceFolders?.[0]) {
+    console.log('No workspace folder available, cannot run checks');
+    checksProvider.updateChecks([{
+      status: 'warning',
+      message: 'No workspace folder open',
+      details: 'Open a folder or workspace to run preflight checks',
+      timestamp: Date.now()
+    }]);
+    return;
+  }
+  
   refreshInProgress = true;
   console.log('Starting preflight checks refresh...');
   
@@ -179,8 +213,9 @@ async function refreshChecks() {
         ...results.services.filter(s => s.status === 'error'),
       ].map(e => e.message).join(', ');
       
-      if (errorMessages) {
-        vscode.window.showWarningMessage(`Preflight checks found errors: ${errorMessages}`);
+      // Only show warning for actual errors, not setup issues
+      if (errorMessages && !errorMessages.includes('not found')) {
+        console.warn('Preflight checks found errors:', errorMessages);
       }
     }
 
@@ -196,7 +231,11 @@ async function refreshChecks() {
     // This catch only handles actual exceptions (e.g., if runPreflightChecks itself fails)
     console.error('Error refreshing checks:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-    vscode.window.showErrorMessage(`Preflight check failed: ${errorMessage}`);
+    
+    // Only show error notification for unexpected errors
+    if (!errorMessage.includes('No workspace folder')) {
+      console.error('Unexpected error during preflight check:', errorMessage);
+    }
     
     // Show error in tree view
     checksProvider.updateChecks([{
