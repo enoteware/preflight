@@ -266,6 +266,15 @@
       margin-right: 8px;
     }
 
+    .service-logo {
+      width: 20px;
+      height: 20px;
+      margin-right: 8px;
+      flex-shrink: 0;
+      object-fit: contain;
+      border-radius: 4px;
+    }
+
     .status-icon {
       width: 20px;
       height: 20px;
@@ -536,6 +545,33 @@
       return null;
     }
 
+    // Map service names to logo filenames
+    const SERVICE_LOGO_MAP = {
+      'GitHub API': 'github.svg',
+      'Supabase': 'supabase.svg',
+      'Resend': 'resend.svg',
+      'Vercel API': 'vercel.svg',
+      'Klaviyo': 'klaviyo.svg',
+      'Upstash': 'upstash.svg',
+      'Redis': 'redis.svg',
+      'Neon': 'neon.svg',
+      'Clerk': 'clerk.svg',
+      'Stack Auth': 'stack-auth.svg',
+      'Auth0': 'auth0.svg',
+      'Stripe': 'stripe.svg',
+      'YouTube API': 'youtube.svg',
+    };
+
+    // Get logo URL for a service
+    function getServiceLogo(message) {
+      for (const [serviceName, logoFile] of Object.entries(SERVICE_LOGO_MAP)) {
+        if (message.includes(serviceName)) {
+          return `/logos/${logoFile}`;
+        }
+      }
+      return null;
+    }
+
     async function refreshChecks() {
       const content = document.getElementById('content');
       const refreshIndicator = document.getElementById('refreshIndicator');
@@ -630,10 +666,15 @@
           
           const latency = result.latency ? ` <span class="check-latency">(${result.latency}ms)</span>` : '';
           
+          // Add service logo for Service Connections category
+          const logoUrl = summary.category === 'Service Connections' ? getServiceLogo(result.message) : null;
+          const logoHtml = logoUrl ? `<img src="${logoUrl}" alt="" class="service-logo" onerror="this.style.display='none'"/>` : '';
+          
           html += `
             <div class="check-item ${result.status}">
               <div class="check-header">
                 ${statusIcon}
+                ${logoHtml}
                 <span class="check-message">${result.message}</span>
                 ${latency}
               </div>`;

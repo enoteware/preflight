@@ -1,0 +1,2 @@
+# This directory stores service logos
+# Run: npx tsx scripts/download-logos.ts

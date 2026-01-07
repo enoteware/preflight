@@ -106,6 +106,7 @@ const MIME_TYPES: Record<string, string> = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
 };
 
 // Generate status JSON by running preflight check
@@ -182,6 +183,39 @@ const server = createServer(async (req, res) => {
     } catch (error) {
       res.writeHead(500);
       res.end('Error generating status');
+      return;
+    }
+  }
+
+  // Handle logo requests
+  if (url.startsWith('/logos/')) {
+    const logoName = url.replace('/logos/', '');
+    const logoPath = join(ROOT, 'extension', 'resources', 'logos', logoName);
+    
+    // Security: prevent directory traversal
+    if (!logoPath.startsWith(join(ROOT, 'extension', 'resources', 'logos'))) {
+      res.writeHead(403);
+      res.end('Forbidden');
+      return;
+    }
+    
+    if (existsSync(logoPath)) {
+      try {
+        const content = readFileSync(logoPath, 'utf-8');
+        res.writeHead(200, { 
+          'Content-Type': 'image/svg+xml',
+          'Cache-Control': 'public, max-age=86400', // Cache for 24 hours
+        });
+        res.end(content);
+        return;
+      } catch (error) {
+        res.writeHead(500);
+        res.end('Error reading logo');
+        return;
+      }
+    } else {
+      res.writeHead(404);
+      res.end('Logo not found');
       return;
     }
   }
