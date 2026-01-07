@@ -4,7 +4,7 @@ Service logos are **already included** in the repository! No setup required.
 
 ## What You Get Out-of-the-Box
 
-The Preflight dashboard includes pre-downloaded SVG logos for 13 popular services:
+The Preflight dashboard includes pre-downloaded SVG logos for 15 popular services:
 - ✅ GitHub
 - ✅ Supabase
 - ✅ Resend
@@ -17,6 +17,8 @@ The Preflight dashboard includes pre-downloaded SVG logos for 13 popular service
 - ✅ Stack Auth
 - ✅ Auth0
 - ✅ Stripe
+- ✅ PayPal
+- ✅ Trello
 - ✅ YouTube
 
 ## Quick Start (30 seconds)

@@ -47,6 +47,8 @@ const SERVICES = {
   'stack-auth': 'stack-auth.com',
   'auth0': 'auth0.com',
   'stripe': 'stripe.com',
+  'paypal': 'paypal.com',
+  'trello': 'trello.com',
   'youtube': 'youtube.com',
 } as const;
 

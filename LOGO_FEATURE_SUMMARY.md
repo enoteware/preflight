@@ -151,6 +151,8 @@ preflight-dashboard.html (modified)
 | Stack Auth | stack-auth.com | stack-auth.svg |
 | Auth0 | auth0.com | auth0.svg |
 | Stripe | stripe.com | stripe.svg |
+| PayPal | paypal.com | paypal.svg |
+| Trello | trello.com | trello.svg |
 | YouTube | youtube.com | youtube.svg |
 
 ## API Integration

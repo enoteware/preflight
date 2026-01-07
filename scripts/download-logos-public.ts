@@ -22,6 +22,8 @@ const PUBLIC_LOGO_SOURCES: Record<string, string> = {
   'clerk': 'https://cdn.simpleicons.org/clerk/6C47FF',
   'auth0': 'https://cdn.simpleicons.org/auth0/EB5424',
   'stripe': 'https://cdn.simpleicons.org/stripe/008CDD',
+  'paypal': 'https://cdn.simpleicons.org/paypal/00457C',
+  'trello': 'https://cdn.simpleicons.org/trello/0052CC',
   'youtube': 'https://cdn.simpleicons.org/youtube/FF0000',
 };
 

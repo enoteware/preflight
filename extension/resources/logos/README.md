@@ -43,6 +43,8 @@ The repository includes SVG logos for:
 - Stack Auth
 - Auth0
 - Stripe
+- PayPal
+- Trello
 - YouTube
 
 ## Usage in Dashboard
