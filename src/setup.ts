@@ -901,7 +901,7 @@ function createVSCodeConfig(project: ProjectInfo) {
   mkdirSync(vscodeDir, { recursive: true });
   
   const tasksPath = join(vscodeDir, 'tasks.json');
-  let tasks = { version: '2.0.0', tasks: [] };
+  let tasks: { version: string; tasks: any[] } = { version: '2.0.0', tasks: [] };
   
   if (existsSync(tasksPath)) {
     try {
@@ -969,7 +969,7 @@ function validatePreconditions(project: ProjectInfo): void {
   const scriptsDir = join(project.rootDir, 'scripts');
   try {
     mkdirSync(scriptsDir, { recursive: true });
-  } catch (error) {
+  } catch (_error) {
     throw new Error(
       `Cannot create scripts directory: ${scriptsDir}\n` +
       'Check that you have write permissions in the project directory.'
@@ -982,7 +982,7 @@ function validatePreconditions(project: ProjectInfo): void {
     try {
       const existing = readFileSync(packageJsonPath, 'utf-8');
       JSON.parse(existing); // Validate it's valid JSON
-    } catch (error) {
+    } catch (_error) {
       throw new Error(
         `Cannot read or parse package.json: ${packageJsonPath}\n` +
         'Please fix any JSON syntax errors before running setup.'
@@ -1314,7 +1314,7 @@ export async function checkPublicAPI(): Promise<CheckResult> {
 `;
 }
 
-function main() {
+async function main() {
   const args = process.argv.slice(2);
   const isUpdate = args.includes('--update') || args.includes('update');
   

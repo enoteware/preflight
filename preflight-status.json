@@ -1,0 +1,38 @@
+{
+  "summaries": [
+    {
+      "category": "CLI Tools",
+      "results": [
+        {
+          "status": "ok",
+          "message": "Node.js v25.2.1 installed",
+          "details": "Version meets minimum requirement (18+)"
+        },
+        {
+          "status": "warning",
+          "message": "npm not found in PATH",
+          "details": "npm may be available via npx or another package manager"
+        }
+      ]
+    },
+    {
+      "category": "Service Connections",
+      "results": [
+        {
+          "status": "ok",
+          "message": "Public API (httpbin.org) is reachable",
+          "details": "Status: 200",
+          "latency": 634,
+          "helpUrl": "https://httpbin.org"
+        },
+        {
+          "status": "ok",
+          "message": "GitHub API authenticated successfully",
+          "details": "Logged in as: enoteware",
+          "latency": 325,
+          "helpUrl": "https://github.com/settings/tokens"
+        }
+      ]
+    }
+  ]
+}

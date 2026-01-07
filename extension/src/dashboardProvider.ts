@@ -165,7 +165,7 @@ export class DashboardProvider {
     context: vscode.ExtensionContext
   ): string {
     // Read the dashboard HTML file
-    const dashboardPath = vscode.Uri.joinPath(
+    const _dashboardPath = vscode.Uri.joinPath(
       context.extensionUri,
       '..',
       '..',

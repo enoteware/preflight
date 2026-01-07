@@ -2,6 +2,81 @@
 
 When helping users with Preflight Toolkit, follow these guidelines for interpreting check results and providing fixes.
 
+## Extension Configuration Features
+
+### Category Overrides (v1.1+)
+
+Users can now manually override which category a check appears in using regex patterns.
+
+**Setting**: `preflight.categoryOverrides` in `.vscode/settings.json`
+
+**Example:**
+```json
+{
+  "preflight.categoryOverrides": {
+    "GITHUB_TOKEN": "env",        // Force to Environment Checks
+    "Database.*": "service",      // Any check with "Database" → Services
+    ".*API.*": "service"          // Any check with "API" → Services
+  }
+}
+```
+
+**When to suggest this:**
+- User complains that a check is in the wrong category
+- User wants custom organization for their team
+- Checks are being auto-categorized incorrectly
+
+### Environment File Links (v1.1+)
+
+The extension now automatically finds env var definitions and links to them.
+
+**Setting**: `preflight.envFiles` in `.vscode/settings.json`
+
+**Default**: `[".env.local", ".env", ".env.development"]`
+
+**Example:**
+```json
+{
+  "preflight.envFiles": [
+    ".env.local",
+    ".env",
+    "apps/web/.env.local",       // Monorepo support
+    "apps/api/.env.local"
+  ]
+}
+```
+
+**What it does:**
+- Scans env files for variable definitions
+- Adds clickable links to open files at specific lines
+- Shows file location in tooltips: "📄 Found in: .env.local:23"
+
+**When to suggest this:**
+- User asks "where is this env var defined?"
+- User has a monorepo with multiple env files
+- User wants quick navigation to env definitions
+
+### Setting Up Extension Features
+
+When setting up the extension for users, add this to `.vscode/settings.json`:
+
+```json
+{
+  "preflight.autoRefresh": true,
+  "preflight.refreshInterval": 10,
+  "preflight.quickMode": true,
+  "preflight.showInStatusBar": true,
+  "preflight.categoryOverrides": {
+    // Add project-specific overrides
+  },
+  "preflight.envFiles": [
+    ".env.local",
+    ".env"
+    // Add project-specific paths
+  ]
+}
+```
+
 ## Understanding Check Results
 
 ### Configuration Checks
@@ -269,8 +344,124 @@ You should now see: ✅ GitHub API: 200 OK
 ❌ **Don't say**: "Add the key"  
 ✅ **Do say**: "Add `SERVICE_KEY=your_key_here` to your `.env.local` file, then run `npm run preflight` again"
 
+## Updating and Maintaining the Extension
+
+### Making Changes to the Extension
+
+When modifying the extension code:
+
+1. **Modify TypeScript files** in `extension/src/`
+   - `extension.ts` - Main activation, commands
+   - `checkRunner.ts` - Check execution, category logic
+   - `treeDataProvider.ts` - Tree view, UI elements
+   - `types.ts` - Shared interfaces
+   - `statusBar.ts` - Status bar display
+
+2. **Test for errors:**
+   ```bash
+   cd extension
+   npm run compile   # TypeScript compilation
+   npm run lint      # ESLint checks
+   ```
+
+3. **Package the extension:**
+   ```bash
+   npm run package   # Creates .vsix file
+   ```
+
+4. **Install and test:**
+   ```bash
+   code --install-extension preflight-status-1.0.0.vsix
+   # or
+   cursor --install-extension preflight-status-1.0.0.vsix
+   ```
+
+5. **Have user reload window:** Cmd+Shift+P → "Reload Window"
+
+### Adding New Features to the Extension
+
+**When adding settings:**
+1. Add to `extension/package.json` under `contributes.configuration.properties`
+2. Read in code with `vscode.workspace.getConfiguration('preflight').get<Type>('settingName')`
+3. Document in `docs/EXTENSION_CONFIG.md`
+
+**When adding commands:**
+1. Add to `extension/package.json` under `contributes.commands`
+2. Register in `extension/src/extension.ts` with `vscode.commands.registerCommand`
+3. Add menu items if needed under `contributes.menus`
+
+**When adding types:**
+1. Update `extension/src/types.ts`
+2. Export interfaces for reuse
+3. Ensure backward compatibility
+
+### File Structure for Agents
+
+```
+extension/
+├── src/
+│   ├── extension.ts           # Main entry: activation, commands, subscriptions
+│   ├── checkRunner.ts         # Executes checks, categorization logic, env scanning
+│   ├── treeDataProvider.ts    # Tree UI, items, icons, click handlers
+│   ├── statusBar.ts           # Status bar display and updates
+│   ├── dashboardProvider.ts   # Webview dashboard (HTML)
+│   └── types.ts               # Shared interfaces (CheckData, StatusSummary)
+├── dist/                      # Compiled JS (generated, don't edit)
+├── resources/
+│   └── icon.svg               # Extension icon
+├── package.json               # Extension manifest (settings, commands, menus)
+└── tsconfig.json              # TypeScript config
+```
+
+**Key files to modify:**
+- **Category logic**: `checkRunner.ts` (lines 97-100 for auto-categorization)
+- **UI elements**: `treeDataProvider.ts` (CheckTreeItem class)
+- **Commands**: `extension.ts` (registerCommand calls)
+- **Settings**: `package.json` (contributes.configuration)
+
+### Testing Extension Changes
+
+Always test before committing:
+
+```bash
+# 1. Compile and check for errors
+cd extension
+npm run compile
+npm run lint
+
+# 2. Package
+npm run package
+
+# 3. Test locally
+code --install-extension preflight-status-1.0.0.vsix
+
+# 4. Verify in test project
+# - Open a project with preflight setup
+# - Check sidebar view loads
+# - Test all commands work
+# - Verify settings apply correctly
+```
+
+### Common Extension Issues
+
+**Extension won't activate:**
+- Check `package.json` has correct `activationEvents`
+- Verify `main` points to `./dist/extension.js`
+- Check for compilation errors in `dist/`
+
+**Changes not appearing:**
+- Recompile: `npm run compile`
+- Reinstall: `code --install-extension preflight-status-1.0.0.vsix`
+- Reload window: Cmd+Shift+P → "Reload Window"
+
+**Settings not working:**
+- Verify setting name matches `package.json`
+- Check setting is read with correct type
+- Ensure default value is provided
+
 ## Additional Resources
 
+- [Extension Configuration Guide](EXTENSION_CONFIG.md) - Detailed settings documentation
 - [Common Service Check Examples](COMMON_SERVICES.md) - Copy-paste examples for popular services
-- [Migration Guide](MIGRATION.md) - For updating existing installations
+- [Migration Guide](../MIGRATION.md) - For updating existing installations
 - [Main README](../README.md) - Setup and usage instructions

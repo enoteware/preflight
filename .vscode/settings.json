@@ -1,0 +1,16 @@
+{
+  "preflight.autoRefresh": true,
+  "preflight.refreshInterval": 10,
+  "preflight.quickMode": true,
+  "preflight.showInStatusBar": true,
+  "preflight.categoryOverrides": {
+    "GITHUB_TOKEN": "env",
+    ".*API.*": "service",
+    "Database.*": "service"
+  },
+  "preflight.envFiles": [
+    ".env.local",
+    ".env",
+    ".env.development"
+  ]
+}

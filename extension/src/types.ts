@@ -9,6 +9,8 @@ export interface CheckData {
   latency?: number;
   helpUrl?: string;
   timestamp?: number;
+  envFilePath?: string;
+  envLineNumber?: number;
 }
 
 export interface StatusSummary {

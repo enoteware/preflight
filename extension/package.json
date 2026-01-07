@@ -1,4 +1,5 @@
 {
+  "type": "module",
   "name": "preflight-status",
   "displayName": "Preflight Status",
   "description": "Real-time API health and environment status monitoring",
@@ -60,6 +61,11 @@
         "command": "preflight.copyHelpUrl",
         "title": "Copy Help URL",
         "icon": "$(link)"
+      },
+      {
+        "command": "preflight.openEnvFile",
+        "title": "Open Environment File",
+        "icon": "$(go-to-file)"
       }
     ],
     "menus": {
@@ -79,6 +85,11 @@
         {
           "command": "preflight.copyHelpUrl",
           "when": "viewItem == check-with-help",
+          "group": "inline"
+        },
+        {
+          "command": "preflight.openEnvFile",
+          "when": "viewItem == check-with-env-file",
           "group": "inline"
         }
       ]
@@ -105,6 +116,26 @@
           "type": "boolean",
           "default": true,
           "description": "Use quick mode (skip slow checks)"
+        },
+        "preflight.categoryOverrides": {
+          "type": "object",
+          "default": {},
+          "description": "Override category assignments for specific checks. Key: check message pattern (regex), Value: 'env' or 'service'",
+          "examples": [
+            {
+              "GITHUB_TOKEN": "env",
+              "Database.*": "service",
+              ".*API.*": "service"
+            }
+          ]
+        },
+        "preflight.envFiles": {
+          "type": "array",
+          "default": [".env.local", ".env", ".env.development"],
+          "description": "List of environment file paths to search for variables (relative to workspace root)",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -131,13 +162,19 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "package": "vsce package",
     "publish": "vsce publish"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.80.0",
+    "@typescript-eslint/eslint-plugin": "^8.52.0",
+    "@typescript-eslint/parser": "^8.52.0",
     "@vscode/vsce": "^2.22.0",
+    "eslint": "^9.39.2",
     "typescript": "^5.0.0"
   },
   "dependencies": {

@@ -11,7 +11,9 @@ export class CheckTreeItem extends vscode.TreeItem {
     public readonly status: 'ok' | 'warning' | 'error',
     public readonly details?: string,
     public readonly helpUrl?: string,
-    public readonly latency?: number
+    public readonly latency?: number,
+    public readonly envFilePath?: string,
+    public readonly envLineNumber?: number
   ) {
     super(label, vscode.TreeItemCollapsibleState.None);
 
@@ -26,18 +28,35 @@ export class CheckTreeItem extends vscode.TreeItem {
     );
 
     // Set tooltip
-    this.tooltip = details || label;
+    let tooltipText = details || label;
+    if (envFilePath) {
+      tooltipText += `\n\n📄 Found in: ${envFilePath}${envLineNumber ? `:${envLineNumber}` : ''}`;
+    }
+    this.tooltip = tooltipText;
 
     // Add latency to description
     if (latency) {
       this.description = `${latency}ms`;
     }
 
-    // Set context value for menu items
-    this.contextValue = helpUrl ? 'check-with-help' : 'check';
+    // Set context value for menu items (prioritize env file over help URL)
+    if (envFilePath) {
+      this.contextValue = 'check-with-env-file';
+    } else if (helpUrl) {
+      this.contextValue = 'check-with-help';
+    } else {
+      this.contextValue = 'check';
+    }
 
-    // Make it clickable if there's a help URL
-    if (helpUrl) {
+    // Make it clickable if there's an env file (prioritize over help URL)
+    if (envFilePath) {
+      // Command will be registered in extension.ts to open the file at the line
+      this.command = {
+        command: 'preflight.openEnvFile',
+        title: 'Open Environment File',
+        arguments: [envFilePath, envLineNumber],
+      };
+    } else if (helpUrl) {
       this.command = {
         command: 'vscode.open',
         title: 'Open Help',
@@ -90,7 +109,9 @@ export class PreflightTreeDataProvider
           check.status,
           check.details,
           check.helpUrl,
-          check.latency
+          check.latency,
+          check.envFilePath,
+          check.envLineNumber
         )
     );
 

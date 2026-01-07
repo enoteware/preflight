@@ -6,7 +6,7 @@ import * as vscode from 'vscode';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { join } from 'path';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import type { CheckData, StatusSummary } from './types';
 
 const execAsync = promisify(exec);
@@ -15,6 +15,57 @@ export interface PreflightResults {
   checks: CheckData[];
   services: CheckData[];
   summary: StatusSummary;
+}
+
+/**
+ * Find environment variable in configured env files
+ */
+function findEnvVarInFiles(
+  workspacePath: string,
+  varName: string,
+  envFiles: string[]
+): { filePath: string; lineNumber: number } | undefined {
+  for (const envFile of envFiles) {
+    const fullPath = join(workspacePath, envFile);
+    if (!existsSync(fullPath)) continue;
+
+    try {
+      const content = readFileSync(fullPath, 'utf-8');
+      const lines = content.split('\n');
+      
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        // Match VAR_NAME= or VAR_NAME = or export VAR_NAME=
+        if (line.match(new RegExp(`^(export\\s+)?${varName}\\s*=`, 'i'))) {
+          return { filePath: envFile, lineNumber: i + 1 };
+        }
+      }
+    } catch {
+      // Skip files that can't be read
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Check if a check should be categorized based on overrides
+ */
+function applyCategoryOverride(
+  message: string,
+  defaultIsService: boolean,
+  overrides: Record<string, string>
+): boolean {
+  for (const [pattern, category] of Object.entries(overrides)) {
+    try {
+      const regex = new RegExp(pattern, 'i');
+      if (regex.test(message)) {
+        return category.toLowerCase() === 'service';
+      }
+    } catch {
+      // Invalid regex, skip
+    }
+  }
+  return defaultIsService;
 }
 
 export async function runPreflightChecks(): Promise<PreflightResults> {
@@ -26,6 +77,8 @@ export async function runPreflightChecks(): Promise<PreflightResults> {
 
   const config = vscode.workspace.getConfiguration('preflight');
   const quickMode = config.get<boolean>('quickMode', true);
+  const categoryOverrides = config.get<Record<string, string>>('categoryOverrides', {});
+  const envFiles = config.get<string[]>('envFiles', ['.env.local', '.env', '.env.development']);
 
   // Run preflight check script with JSON output
   const scriptPath = join(workspaceFolder.uri.fsPath, 'scripts', 'preflight-check.ts');
@@ -96,10 +149,28 @@ export async function runPreflightChecks(): Promise<PreflightResults> {
     for (const summary of data.summaries || []) {
       // Categorize: Service Connections go to services view,
       // everything else (CLI Tools, Configuration, Environment Variables) goes to checks view
-      const isService = summary.category.toLowerCase().includes('service') ||
+      let isService = summary.category.toLowerCase().includes('service') ||
         summary.category.toLowerCase().includes('connection');
 
       for (const result of summary.results || []) {
+        // Try to find env var location
+        let envFilePath: string | undefined;
+        let envLineNumber: number | undefined;
+        
+        // Extract env var name from message (common patterns)
+        const envVarMatch = result.message.match(/([A-Z_][A-Z0-9_]*)/);
+        if (envVarMatch) {
+          const varName = envVarMatch[1];
+          const location = findEnvVarInFiles(workspaceFolder.uri.fsPath, varName, envFiles);
+          if (location) {
+            envFilePath = location.filePath;
+            envLineNumber = location.lineNumber;
+          }
+        }
+
+        // Apply category override if configured
+        const finalIsService = applyCategoryOverride(result.message, isService, categoryOverrides);
+
         const checkData: CheckData = {
           status: result.status,
           message: result.message,
@@ -107,9 +178,11 @@ export async function runPreflightChecks(): Promise<PreflightResults> {
           latency: result.latency,
           helpUrl: result.helpUrl,
           timestamp: Date.now(),
+          envFilePath,
+          envLineNumber,
         };
 
-        if (isService) {
+        if (finalIsService) {
           services.push(checkData);
         } else {
           checks.push(checkData);

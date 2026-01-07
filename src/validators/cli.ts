@@ -38,7 +38,7 @@ export function checkCLITools(): CheckResult[] {
       });
       const version = output.trim().split('\n')[0];
       result.message = `${tool.name} ${version}`;
-    } catch (error) {
+    } catch (_error) {
       if (tool.optional) {
         result.status = 'warning';
         result.message = `${tool.name} not found (optional)`;

@@ -58,6 +58,36 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  context.subscriptions.push(
+    vscode.commands.registerCommand('preflight.openEnvFile', async (filePath?: string, lineNumber?: number) => {
+      const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder || !filePath) {
+        vscode.window.showWarningMessage('Cannot open environment file: workspace or file path not found');
+        return;
+      }
+
+      try {
+        const uri = vscode.Uri.joinPath(workspaceFolder.uri, filePath);
+        const document = await vscode.workspace.openTextDocument(uri);
+        const editor = await vscode.window.showTextDocument(document);
+
+        // Jump to the line if provided
+        if (lineNumber && lineNumber > 0) {
+          const position = new vscode.Position(lineNumber - 1, 0);
+          editor.selection = new vscode.Selection(position, position);
+          editor.revealRange(
+            new vscode.Range(position, position),
+            vscode.TextEditorRevealType.InCenter
+          );
+        }
+      } catch (error) {
+        vscode.window.showErrorMessage(
+          `Failed to open ${filePath}: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    })
+  );
+
   // Initial check
   refreshChecks();
 

@@ -35,6 +35,43 @@ Real-time API health and environment status monitoring for VSCode/Cursor.
 - `preflight.refreshInterval` - Refresh interval in seconds (default: 10, min: 5)
 - `preflight.showInStatusBar` - Show status in status bar (default: true)
 - `preflight.quickMode` - Use quick mode, skip slow checks (default: true)
+- `preflight.categoryOverrides` - Override check categories with regex patterns (default: {})
+- `preflight.envFiles` - List of env files to search for variables (default: [".env.local", ".env", ".env.development"])
+
+### New in v1.1+
+
+#### Category Overrides
+Manually control which checks appear in "Environment Checks" vs "Service Connections":
+
+```json
+{
+  "preflight.categoryOverrides": {
+    "GITHUB_TOKEN": "env",
+    "Database.*": "service",
+    ".*API.*": "service"
+  }
+}
+```
+
+#### Environment File Links
+Automatically find and link to env var definitions:
+
+```json
+{
+  "preflight.envFiles": [
+    ".env.local",
+    ".env",
+    "apps/web/.env.local"
+  ]
+}
+```
+
+The extension will:
+- Scan these files for variable definitions
+- Add clickable links to open files at specific lines
+- Show file location in tooltips: "📄 Found in: .env.local:23"
+
+See [docs/EXTENSION_CONFIG.md](../docs/EXTENSION_CONFIG.md) for detailed configuration guide.
 
 ## Installation
 
