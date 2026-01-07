@@ -28,7 +28,7 @@ async function runChecks(quickMode = false, skipGit = false): Promise<CheckSumma
   // Configuration: Environment Variables
   // These checks only verify if env vars are SET, not if services are reachable
   const envResults = validateEnvVars();
-  summaries.push({ category: 'Configuration', results: envResults });
+  summaries.push({ category: 'Environment Variables', results: envResults });
   
   // Service Connections: Connectivity checks
   // These make REAL API calls to verify your keys are working (not just set).

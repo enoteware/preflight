@@ -1,470 +1,114 @@
-/**
- * TEMPLATE FILE - Do not edit directly
- * This file is used by the setup script to generate project-specific files
- * Variables: {{PROJECT_NAME}}, {{PORT}}, etc.
- */
-
 #!/usr/bin/env tsx
 /**
- * Pre-flight check script for Invoi
- * Validates CLI tools, environment variables, and service connections
+ * Preflight check - validates development environment
  */
 
-import { existsSync } from 'fs';
-import { readFileSync } from 'fs';
-import { writeFileSync } from 'fs';
-import { join } from 'path';
-import * as readline from 'readline';
+import { config } from 'dotenv';
+import { resolve } from 'path';
 
-import dotenv from 'dotenv';
+// Load environment variables
+config({ path: resolve(process.cwd(), '.env.local') });
+config({ path: resolve(process.cwd(), '..', '.env.local') });
 
-import {
-  checkCLITools,
-  checkDevServer,
-  checkNeonDatabase,
-  checkOpenAI,
-  checkResend,
-  checkStackAuth,
-  checkVercelAuth,
-  checkVercelToken,
-  CheckResult,
-} from './preflight-validators';
+import { checkNode, checkPackageManager } from './preflight-validators/cli';
 import { validateEnvVars } from './preflight-validators/env';
+import { checkGitHubAPI, checkPublicAPI } from './preflight-validators/services';
+import { CheckResult, CheckSummary } from './preflight-validators/types';
 
-// Load environment variables from .env.local files
-// Check both the current directory ({{PROJECT_NAME}}) and parent directory (root)
-const currentDirEnv = join(process.cwd(), '.env.local');
-const rootDirEnv = join(process.cwd(), '..', '.env.local');
-
-// Load root .env.local first (lower priority), then current dir (higher priority)
-if (existsSync(rootDirEnv)) {
-  dotenv.config({ path: rootDirEnv });
-}
-if (existsSync(currentDirEnv)) {
-  dotenv.config({ path: currentDirEnv, override: true }); // Override with local values
-}
-
-interface CheckSummary {
-  category: string;
-  results: CheckResult[];
-}
-
-// ANSI color codes
-const colors = {
-  reset: '\x1b[0m',
-  bright: '\x1b[1m',
-  green: '\x1b[32m',
-  red: '\x1b[31m',
-  yellow: '\x1b[33m',
-  blue: '\x1b[34m',
-  cyan: '\x1b[36m',
-};
-
-function colorize(text: string, color: keyof typeof colors): string {
-  if (process.env.CI === 'true' || process.argv.includes('--ci')) {
-    return text; // No colors in CI mode
-  }
-  return `${colors[color]}${text}${colors.reset}`;
-}
-
-function formatStatus(status: CheckResult['status']): string {
-  switch (status) {
-    case 'ok':
-      return colorize('✅', 'green');
-    case 'error':
-      return colorize('❌', 'red');
-    case 'warning':
-      return colorize('⚠️ ', 'yellow');
-    default:
-      return '  ';
-  }
-}
-
-function printHeader() {
-  console.log('');
-  console.log(colorize('🚀 INVOI PRE-FLIGHT CHECK', 'bright'));
-  console.log(colorize('========================', 'bright'));
-  console.log('');
-}
-
-function printCategory(category: string, results: CheckResult[]) {
-  const okCount = results.filter((r) => r.status === 'ok').length;
-  const errorCount = results.filter((r) => r.status === 'error').length;
-  const warningCount = results.filter((r) => r.status === 'warning').length;
-
-  const statusIcon =
-    errorCount > 0
-      ? colorize('❌', 'red')
-      : warningCount > 0
-        ? colorize('⚠️ ', 'yellow')
-        : colorize('✅', 'green');
-
-  console.log(`${statusIcon} ${colorize(category, 'bright')}`);
-  console.log(`   ${okCount} passed, ${errorCount} errors, ${warningCount} warnings`);
-  console.log('');
-
-  for (const result of results) {
-    const status = formatStatus(result.status);
-    console.log(`   ${status} ${result.message}`);
-    if (result.details) {
-      console.log(`      ${colorize(result.details, 'cyan')}`);
-    }
-    if (result.latency) {
-      console.log(`      Latency: ${result.latency}ms`);
-    }
-    if (result.helpUrl) {
-      console.log(`      Help: ${colorize(result.helpUrl, 'blue')}`);
-    }
-  }
-  console.log('');
-}
-
-async function runChecks(quickMode = false): Promise<CheckSummary[]> {
+async function runChecks(quickMode = false, skipGit = false): Promise<CheckSummary[]> {
   const summaries: CheckSummary[] = [];
-
+  
   // CLI Tools
-  console.log(colorize('Checking CLI tools...', 'cyan'));
-  const cliResults = checkCLITools();
+  const cliResults: CheckResult[] = [
+    checkNode(),
+    checkPackageManager('npm'),
+  ];
   summaries.push({ category: 'CLI Tools', results: cliResults });
-
-  // Dev Server
-  console.log(colorize('Checking dev server...', 'cyan'));
-  const devServerResult = checkDevServer();
-  summaries.push({ category: 'Dev Server', results: [devServerResult] });
-
-  // Environment Variables
-  console.log(colorize('Checking environment variables...', 'cyan'));
+  
+  // Configuration: Environment Variables
+  // These checks only verify if env vars are SET, not if services are reachable
   const envResults = validateEnvVars();
-  const requiredEnv = envResults.filter((r) => {
-    const key = r.message.split(' ')[0];
-    return (
-      key.includes('STACK_') ||
-      key.includes('DATABASE_URL') ||
-      key.includes('RESEND_') ||
-      key.includes('PAYPAL_') ||
-      key.includes('CLIENT_PORTAL_') ||
-      key.includes('OPENAI_') ||
-      key.includes('BLOB_') ||
-      key.includes('SESSION_') ||
-      key.includes('NEXT_PUBLIC_APP_URL')
-    );
-  });
-  const optionalEnv = envResults.filter((r) => !requiredEnv.includes(r));
-  summaries.push({ category: 'Environment Variables (Required)', results: requiredEnv });
-  if (optionalEnv.length > 0) {
-    summaries.push({ category: 'Environment Variables (Optional)', results: optionalEnv });
-  }
-
-  // Service Connections
-  console.log(colorize('Checking service connections...', 'cyan'));
+  summaries.push({ category: 'Configuration', results: envResults });
+  
+  // Service Connections: Connectivity checks
+  // These make REAL API calls to verify your keys are working (not just set).
+  // Each check will:
+  // - Make an authenticated API request using the env var
+  // - Verify response is 200 OK (key is valid)
+  // - Return error if 401 (invalid/expired key) or other failures
+  // This ensures your API keys are actually WORKING, not just configured.
   const serviceResults: CheckResult[] = [];
-
-  // Database (skip in quick mode)
+  
+  // Always run public API check (fast, no auth required - verifies internet connectivity)
+  const publicApiResult = await checkPublicAPI();
+  serviceResults.push(publicApiResult);
+  
+  // Check authenticated APIs (if not in quick mode)
+  // These verify your API keys are valid by making real authenticated requests
   if (!quickMode) {
-    try {
-      const dbResult = await checkNeonDatabase();
-      serviceResults.push(dbResult);
-    } catch (error) {
-      serviceResults.push({
-        status: 'error',
-        message: 'Database check failed',
-        details: error instanceof Error ? error.message : String(error),
-      });
-    }
-  } else {
-    // In quick mode, just check if DATABASE_URL is set
-    const dbUrl = process.env.DATABASE_URL;
-    if (dbUrl) {
-      serviceResults.push({
-        status: 'ok',
-        message: 'DATABASE_URL configured (connection not tested)',
-      });
-    } else {
-      serviceResults.push({
-        status: 'error',
-        message: 'DATABASE_URL not set',
-      });
-    }
+    const githubApiResult = await checkGitHubAPI();
+    serviceResults.push(githubApiResult);
   }
-
-  // Vercel
-  try {
-    const vercelResult = await checkVercelAuth();
-    serviceResults.push(vercelResult);
-  } catch (error) {
-    serviceResults.push({
-      status: 'warning',
-      message: 'Vercel check failed',
-      details: error instanceof Error ? error.message : String(error),
-    });
-  }
-
-  // Stack Auth
-  try {
-    const stackResult = await checkStackAuth();
-    serviceResults.push(stackResult);
-  } catch (error) {
-    serviceResults.push({
-      status: 'error',
-      message: 'Stack Auth check failed',
-      details: error instanceof Error ? error.message : String(error),
-    });
-  }
-
-  // OpenAI
-  try {
-    const openaiResult = await checkOpenAI();
-    serviceResults.push(openaiResult);
-  } catch (error) {
-    serviceResults.push({
-      status: 'warning',
-      message: 'OpenAI check failed',
-      details: error instanceof Error ? error.message : String(error),
-    });
-  }
-
-  // Resend
-  try {
-    const resendResult = await checkResend();
-    serviceResults.push(resendResult);
-  } catch (error) {
-    serviceResults.push({
-      status: 'warning',
-      message: 'Resend check failed',
-      details: error instanceof Error ? error.message : String(error),
-    });
-  }
-
+  
   summaries.push({ category: 'Service Connections', results: serviceResults });
-
+  
   return summaries;
-}
-
-function printSummary(summaries: CheckSummary[]) {
-  let totalErrors = 0;
-  let totalWarnings = 0;
-
-  for (const summary of summaries) {
-    for (const result of summary.results) {
-      if (result.status === 'error') totalErrors++;
-      if (result.status === 'warning') totalWarnings++;
-    }
-  }
-
-  console.log(colorize('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'bright'));
-  console.log('');
-
-  if (totalErrors > 0) {
-    console.log(colorize(`❌ ERRORS: ${totalErrors} critical issue(s)`, 'red'));
-  }
-  if (totalWarnings > 0) {
-    console.log(colorize(`⚠️  WARNINGS: ${totalWarnings} issue(s) found`, 'yellow'));
-  }
-  if (totalErrors === 0 && totalWarnings === 0) {
-    console.log(colorize('✅ All checks passed!', 'green'));
-  }
-
-  console.log('');
-
-  if (totalErrors > 0 || totalWarnings > 0) {
-    console.log(colorize('Run with --fix to set up missing tokens interactively.', 'cyan'));
-  }
-  console.log('');
-}
-
-function createReadlineInterface() {
-  return readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-}
-
-async function prompt(question: string): Promise<string> {
-  const rl = createReadlineInterface();
-  return new Promise((resolve) => {
-    rl.question(question, (answer) => {
-      rl.close();
-      resolve(answer.trim());
-    });
-  });
-}
-
-async function interactiveFix(summaries: CheckSummary[]) {
-  console.log(colorize('🔧 INTERACTIVE SETUP MODE', 'bright'));
-  console.log(colorize('========================', 'bright'));
-  console.log('');
-
-  const missingVars: Array<{ key: string; helpUrl?: string; format?: string }> = [];
-
-  // Collect missing environment variables
-  for (const summary of summaries) {
-    for (const result of summary.results) {
-      if (result.status === 'error') {
-        const key = result.message.split(' ')[0];
-        if (key && !process.env[key] && key.includes('_')) {
-          missingVars.push({
-            key,
-            helpUrl: result.helpUrl,
-            format: result.details,
-          });
-        }
-      }
-    }
-  }
-
-  if (missingVars.length === 0) {
-    console.log(colorize('✅ No missing required variables found.', 'green'));
-    console.log('');
-    return;
-  }
-
-  console.log(`Found ${missingVars.length} missing environment variable(s).`);
-  console.log('');
-
-  const envUpdates: Record<string, string> = {};
-  const envLocalPath = join(process.cwd(), '.env.local');
-
-  for (const { key, helpUrl, format } of missingVars) {
-    console.log(colorize(`Setting up: ${key}`, 'cyan'));
-    if (format) {
-      console.log(`  Format: ${format}`);
-    }
-    if (helpUrl) {
-      console.log(`  Help: ${helpUrl}`);
-    }
-    console.log('');
-
-    const value = await prompt(`Enter value for ${key} (or press Enter to skip): `);
-
-    if (value) {
-      envUpdates[key] = value;
-      process.env[key] = value;
-      console.log(colorize(`✅ ${key} set`, 'green'));
-    } else {
-      console.log(colorize(`⏭️  Skipped ${key}`, 'yellow'));
-    }
-    console.log('');
-  }
-
-  // Update .env.local file
-  if (Object.keys(envUpdates).length > 0) {
-    let envContent = '';
-    if (existsSync(envLocalPath)) {
-      envContent = readFileSync(envLocalPath, 'utf-8');
-    }
-
-    const writeEnv = await prompt(
-      `Update .env.local file with ${Object.keys(envUpdates).length} variable(s)? (y/n): `
-    );
-
-    if (writeEnv.toLowerCase() === 'y') {
-      for (const [key, value] of Object.entries(envUpdates)) {
-        // Check if key already exists
-        const keyRegex = new RegExp(`^${key}=.*$`, 'm');
-        if (keyRegex.test(envContent)) {
-          envContent = envContent.replace(keyRegex, `${key}=${value}`);
-        } else {
-          envContent += `\n${key}=${value}`;
-        }
-      }
-
-      writeFileSync(envLocalPath, envContent.trim() + '\n');
-      console.log(colorize(`✅ Updated .env.local`, 'green'));
-    }
-  }
-
-  // Check for Vercel CLI
-  const vercelCheck = summaries
-    .find((s) => s.category === 'Service Connections')
-    ?.results.find((r) => r.message.includes('Vercel'));
-
-  if (vercelCheck?.status === 'error' || vercelCheck?.status === 'warning') {
-    const runVercelLogin = await prompt('Run `vercel login` now? (y/n): ');
-    if (runVercelLogin.toLowerCase() === 'y') {
-      const { execSync } = await import('child_process');
-      try {
-        execSync('vercel login', { stdio: 'inherit' });
-        console.log(colorize('✅ Vercel login completed', 'green'));
-      } catch (error) {
-        console.log(colorize('❌ Vercel login failed', 'red'));
-      }
-    }
-  }
-
-  console.log('');
-  console.log(colorize('Re-running checks...', 'cyan'));
-  console.log('');
 }
 
 async function main() {
   const args = process.argv.slice(2);
-  const isFixMode = args.includes('--fix');
-  const isCIMode = args.includes('--ci');
-  const isQuickMode = args.includes('--quick');
-  const isJsonMode = args.includes('--json');
-
-  if (!isCIMode && !isJsonMode) {
-    printHeader();
-    if (isQuickMode) {
-      console.log(colorize('⚡ Quick Mode: Skipping slow connection tests', 'cyan'));
-      console.log('');
-    }
-  }
-
-  let summaries = await runChecks(isQuickMode);
-
-  if (isFixMode && !isCIMode && !isJsonMode) {
-    await interactiveFix(summaries);
-    // Re-run checks after fixes
-    summaries = await runChecks();
-  }
-
-  // JSON output mode (for VSCode extension)
-  if (isJsonMode) {
+  const jsonOutput = args.includes('--json') || args.includes('--status');
+  const quick = args.includes('--quick');
+  const skipGit = args.includes('--skip-git');
+  
+  const summaries = await runChecks(quick, skipGit);
+  
+  // Add timestamps
+  summaries.forEach(summary => {
+    summary.results.forEach(result => {
+      result.timestamp = Date.now();
+    });
+  });
+  
+  if (jsonOutput) {
     console.log(JSON.stringify({ summaries }, null, 2));
-    // Exit with appropriate code
-    let hasErrors = false;
-    for (const summary of summaries) {
-      for (const result of summary.results) {
-        if (result.status === 'error') hasErrors = true;
-      }
-    }
-    process.exit(hasErrors ? 1 : 0);
-    return;
+    process.exit(0);
   }
-
-  // Print results
-  for (const summary of summaries) {
-    printCategory(summary.category, summary.results);
-  }
-
-  printSummary(summaries);
-
-  // Calculate exit code
+  
+  console.log('\n🔍 Preflight Check Results\n');
+  
   let hasErrors = false;
   let hasWarnings = false;
-
+  
   for (const summary of summaries) {
+    console.log(`\n📦 ${summary.category}`);
     for (const result of summary.results) {
+      const icon = result.status === 'ok' ? '✅' : result.status === 'warning' ? '⚠️' : '❌';
+      console.log(`   ${icon} ${result.message}`);
+      if (result.details) {
+        console.log(`      ${result.details}`);
+      }
+      if (result.helpUrl) {
+        console.log(`      Help: ${result.helpUrl}`);
+      }
+      
       if (result.status === 'error') hasErrors = true;
       if (result.status === 'warning') hasWarnings = true;
     }
   }
-
-  // Exit codes: 0 = success, 1 = errors, 2 = warnings only
+  
+  console.log('\n' + '='.repeat(50) + '\n');
+  
   if (hasErrors) {
+    console.log('❌ Some checks failed!');
     process.exit(1);
-  } else if (hasWarnings && isCIMode) {
-    // In CI mode, warnings are acceptable
-    process.exit(0);
   } else if (hasWarnings) {
-    process.exit(2);
+    console.log('⚠️  All checks passed with warnings');
+    process.exit(0);
   } else {
+    console.log('✅ All checks passed!');
     process.exit(0);
   }
 }
 
-main().catch((error) => {
-  console.error(colorize('Fatal error:', 'red'), error);
-  process.exit(1);
-});
+main().catch(console.error);

@@ -12,5 +12,6 @@
     ".env.local",
     ".env",
     ".env.development"
-  ]
+  ],
+  "task.allowAutomaticTasks": true
 }

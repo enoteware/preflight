@@ -5,13 +5,24 @@
       "results": [
         {
           "status": "ok",
-          "message": "Node.js v25.2.1 installed",
-          "details": "Version meets minimum requirement (18+)"
+          "message": "Node.js v25.2.1",
+          "timestamp": 1767752482065
         },
         {
+          "status": "ok",
+          "message": "npm 11.6.2",
+          "timestamp": 1767752482065
+        }
+      ]
+    },
+    {
+      "category": "Configuration",
+      "results": [
+        {
           "status": "warning",
-          "message": "npm not found in PATH",
-          "details": "npm may be available via npx or another package manager"
+          "message": "NODE_ENV: NOT SET",
+          "details": "Node environment (development/production)",
+          "timestamp": 1767752482065
         }
       ]
     },
@@ -20,17 +31,19 @@
       "results": [
         {
           "status": "ok",
-          "message": "Public API (httpbin.org) is reachable",
-          "details": "Status: 200",
-          "latency": 634,
-          "helpUrl": "https://httpbin.org"
+          "message": "Public API: 200 OK",
+          "details": "httpbin.org is reachable (354ms)",
+          "latency": 354,
+          "helpUrl": "https://httpbin.org",
+          "timestamp": 1767752482065
         },
         {
           "status": "ok",
-          "message": "GitHub API authenticated successfully",
-          "details": "Logged in as: enoteware",
-          "latency": 325,
-          "helpUrl": "https://github.com/settings/tokens"
+          "message": "GitHub API: 200 OK",
+          "details": "✅ Key verified - Authenticated as: enoteware (331ms)",
+          "latency": 331,
+          "helpUrl": "https://github.com/settings/tokens",
+          "timestamp": 1767752482065
         }
       ]
     }

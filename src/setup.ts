@@ -17,6 +17,7 @@ import { execSync } from 'child_process';
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { loadTemplate } from './utils/templateLoader.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -67,434 +68,36 @@ function createPreflightStructure(project: ProjectInfo) {
   const scriptsDir = join(project.rootDir, 'scripts', 'preflight-validators');
   mkdirSync(scriptsDir, { recursive: true });
   
-  // Create types
+  // Create types (always overwrite - this is a core file)
   writeFileSync(
     join(scriptsDir, 'types.ts'),
-    `export type CheckStatus = 'ok' | 'warning' | 'error';
-
-export interface CheckResult {
-  status: CheckStatus;
-  message: string;
-  details?: string;
-  helpUrl?: string;
-  latency?: number;
-  timestamp?: number;
-}
-
-export interface CheckSummary {
-  category: string;
-  results: CheckResult[];
-}
-`
+    loadTemplate('types.ts')
   );
   
-  // Create CLI validator
+  // Create CLI validator (always overwrite - this is a core file)
   writeFileSync(
     join(scriptsDir, 'cli.ts'),
-    `import { execSync } from 'child_process';
-import { CheckResult } from './types';
-
-export function checkNode(): CheckResult {
-  try {
-    const version = execSync('node --version', { encoding: 'utf-8' }).trim();
-    return {
-      status: 'ok',
-      message: \`Node.js \${version}\`,
-    };
-  } catch {
-    return {
-      status: 'error',
-      message: 'Node.js not found',
-      helpUrl: 'https://nodejs.org/',
-    };
-  }
-}
-
-export function checkPackageManager(pm: string): CheckResult {
-  try {
-    const cmd = pm === 'yarn' ? 'yarn --version' : pm === 'pnpm' ? 'pnpm --version' : 'npm --version';
-    const version = execSync(cmd, { encoding: 'utf-8' }).trim();
-    return {
-      status: 'ok',
-      message: \`\${pm} \${version}\`,
-    };
-  } catch {
-    return {
-      status: 'warning',
-      message: \`\${pm} not found\`,
-    };
-  }
-}
-`
+    loadTemplate('cli.ts')
   );
   
-  // Create env validator
+  // Create env validator (always overwrite - this is a core file)
   writeFileSync(
     join(scriptsDir, 'env.ts'),
-    `import { CheckResult } from './types';
-
-interface EnvVarConfig {
-  key: string;
-  required: boolean;
-  validator?: (value: string) => boolean;
-  format?: string;
-  helpUrl?: string;
-  description: string;
-}
-
-// Common environment variables - customize for your project
-const envVarConfigs: EnvVarConfig[] = [
-  {
-    key: 'NODE_ENV',
-    required: false,
-    description: 'Node environment (development/production)',
-  },
-];
-
-export function validateEnvVars(): CheckResult[] {
-  const results: CheckResult[] = [];
-  
-  for (const config of envVarConfigs) {
-    const value = process.env[config.key];
-    
-    if (!value) {
-      results.push({
-        status: config.required ? 'error' : 'warning',
-        message: \`\${config.key}: NOT SET\`,
-        details: config.description,
-        helpUrl: config.helpUrl,
-      });
-      continue;
-    }
-    
-    if (config.validator && !config.validator(value)) {
-      results.push({
-        status: 'error',
-        message: \`\${config.key}: INVALID\`,
-        details: \`Expected format: \${config.format}\`,
-        helpUrl: config.helpUrl,
-      });
-      continue;
-    }
-    
-    results.push({
-      status: 'ok',
-      message: \`\${config.key}: SET\`,
-    });
-  }
-  
-  return results;
-}
-`
+    loadTemplate('env.ts')
   );
   
-  // Create service validators
-  writeFileSync(
-    join(scriptsDir, 'services.ts'),
-    `import { CheckResult } from './types';
-
-/**
- * Service connection checks - these verify that services are reachable and responding.
- * These checks only run if the corresponding environment variable is set.
- * 
- * IMPORTANT: These checks make REAL API calls to verify your keys are working.
- * A service check will:
- * 1. Check if the env var exists (skip if missing)
- * 2. Make an authenticated API call using the key
- * 3. Verify the response is 200 OK (key is valid and working)
- * 4. Return error if 401 (invalid/expired key) or other failures
- * 
- * This ensures your API keys are not just SET, but actually WORKING.
- * 
- * To add a new service check:
- * 1. Create a function that checks if the env var exists
- * 2. If it exists, make an API call with the key to verify it works
- * 3. Check response.status === 200 to confirm key is valid
- * 4. Return a CheckResult with status, message, latency, and details
- */
-
-/**
- * Check GitHub API connection (requires GITHUB_TOKEN)
- * 
- * This makes a REAL API call to verify your GITHUB_TOKEN is valid and working.
- * It calls https://api.github.com/user which requires authentication.
- * 
- * Results:
- * - ✅ 200 OK: Token is valid and working (shows authenticated username)
- * - ❌ 401: Token is invalid, expired, or revoked
- * - ❌ Timeout/Network: Service unreachable
- * 
- * This ensures your key is not just SET, but actually WORKING.
- */
-export async function checkGitHubAPI(): Promise<CheckResult> {
-  const token = process.env.GITHUB_TOKEN;
-  const startTime = Date.now();
-
-  // Skip if env var not set (that's a configuration issue, not connectivity)
-  if (!token) {
-    return {
-      status: 'warning',
-      message: 'GitHub API: Not checked (GITHUB_TOKEN not set)',
-      details: 'Set GITHUB_TOKEN environment variable to enable this check',
-      helpUrl: 'https://github.com/settings/tokens',
-    };
+  // Create service validators (only if doesn't exist - preserve custom checks)
+  const servicesPath = join(scriptsDir, 'services.ts');
+  if (!existsSync(servicesPath)) {
+    writeFileSync(servicesPath, loadTemplate('services.ts'));
+  } else {
+    console.log('   ℹ️  services.ts already exists - preserving custom service checks');
   }
-
-  try {
-    // Make REAL API call to verify the token works
-    // This endpoint requires authentication - if we get 200, the key is valid
-    const response = await fetch('https://api.github.com/user', {
-      method: 'GET',
-      headers: {
-        'Authorization': \`Bearer \${token}\`,
-        'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'preflight-check',
-      },
-      signal: AbortSignal.timeout(5000),
-    });
-
-    const latency = Date.now() - startTime;
-
-    // 200 OK = Key is valid and working!
-    if (response.ok) {
-      const data = await response.json();
-      return {
-        status: 'ok',
-        message: 'GitHub API: 200 OK',
-        details: \`✅ Key verified - Authenticated as: \${data.login || 'authenticated user'} (\${latency}ms)\`,
-        latency,
-        helpUrl: 'https://github.com/settings/tokens',
-      };
-    } else if (response.status === 401) {
-      // 401 = Key is invalid, expired, or revoked
-      return {
-        status: 'error',
-        message: 'GitHub API: Authentication failed',
-        details: \`❌ Key is invalid or expired (HTTP \${response.status}, \${latency}ms)\`,
-        latency,
-        helpUrl: 'https://github.com/settings/tokens',
-      };
-    } else {
-      return {
-        status: 'warning',
-        message: \`GitHub API: Unexpected status \${response.status}\`,
-        details: \`\${response.statusText} (\${latency}ms)\`,
-        latency,
-      };
-    }
-  } catch (error) {
-    const latency = Date.now() - startTime;
-    if (error instanceof Error && error.name === 'TimeoutError') {
-      return {
-        status: 'error',
-        message: 'GitHub API: Timeout',
-        details: \`Request timed out after 5s\`,
-        latency,
-      };
-    }
-    return {
-      status: 'error',
-      message: 'GitHub API: Connection failed',
-      details: error instanceof Error ? error.message : String(error),
-      latency,
-    };
-  }
-}
-
-/**
- * Check a public API endpoint (no auth required)
- * This verifies general internet connectivity
- */
-export async function checkPublicAPI(): Promise<CheckResult> {
-  const startTime = Date.now();
-  try {
-    const response = await fetch('https://httpbin.org/json', {
-      method: 'GET',
-      signal: AbortSignal.timeout(5000),
-    });
-
-    const latency = Date.now() - startTime;
-
-    if (response.ok) {
-      return {
-        status: 'ok',
-        message: 'Public API: 200 OK',
-        details: \`httpbin.org is reachable (\${latency}ms)\`,
-        latency,
-        helpUrl: 'https://httpbin.org',
-      };
-    } else {
-      return {
-        status: 'warning',
-        message: \`Public API: Status \${response.status}\`,
-        details: \`\${response.statusText} (\${latency}ms)\`,
-        latency,
-      };
-    }
-  } catch (error) {
-    const latency = Date.now() - startTime;
-    if (error instanceof Error && error.name === 'TimeoutError') {
-      return {
-        status: 'error',
-        message: 'Public API: Timeout',
-        details: \`Request timed out after 5s\`,
-        latency,
-      };
-    }
-    return {
-      status: 'error',
-      message: 'Public API: Connection failed',
-      details: error instanceof Error ? error.message : String(error),
-      latency,
-    };
-  }
-}
-
-// Add more service checks as needed:
-// 
-// CRITICAL: Always make a REAL API call to verify the key works!
-// Don't just check if the key exists - test it with an authenticated request.
-//
-// Example pattern:
-// export async function checkOpenAI(): Promise<CheckResult> {
-//   const apiKey = process.env.OPENAI_API_KEY;
-//   if (!apiKey) {
-//     return { status: 'warning', message: 'OpenAI API: Not checked (OPENAI_API_KEY not set)' };
-//   }
-//   
-//   // Make REAL API call to verify key works
-//   const response = await fetch('https://api.openai.com/v1/models', {
-//     headers: { 'Authorization': \`Bearer \${apiKey}\` },
-//     signal: AbortSignal.timeout(5000),
-//   });
-//   
-//   if (response.ok) {
-//     return { status: 'ok', message: 'OpenAI API: 200 OK', details: 'Key verified and working' };
-//   } else if (response.status === 401) {
-//     return { status: 'error', message: 'OpenAI API: Invalid key', details: 'Key is invalid or expired' };
-//   }
-//   // ... handle other cases
-// }
-`
-  );
   
   // Create main preflight check script
   writeFileSync(
     join(project.rootDir, 'scripts', 'preflight-check.ts'),
-    `#!/usr/bin/env tsx
-/**
- * Preflight check - validates development environment
- */
-
-import { config } from 'dotenv';
-import { resolve } from 'path';
-
-// Load environment variables
-config({ path: resolve(process.cwd(), '.env.local') });
-config({ path: resolve(process.cwd(), '..', '.env.local') });
-
-import { checkNode, checkPackageManager } from './preflight-validators/cli';
-import { validateEnvVars } from './preflight-validators/env';
-import { checkGitHubAPI, checkPublicAPI } from './preflight-validators/services';
-import { CheckResult, CheckSummary } from './preflight-validators/types';
-
-async function runChecks(quickMode = false): Promise<CheckSummary[]> {
-  const summaries: CheckSummary[] = [];
-  
-  // CLI Tools
-  const cliResults: CheckResult[] = [
-    checkNode(),
-    checkPackageManager('npm'),
-  ];
-  summaries.push({ category: 'CLI Tools', results: cliResults });
-  
-  // Configuration: Environment Variables
-  // These checks only verify if env vars are SET, not if services are reachable
-  const envResults = validateEnvVars();
-  summaries.push({ category: 'Configuration', results: envResults });
-  
-  // Service Connections: Connectivity checks
-  // These make REAL API calls to verify your keys are working (not just set).
-  // Each check will:
-  // - Make an authenticated API request using the env var
-  // - Verify response is 200 OK (key is valid)
-  // - Return error if 401 (invalid/expired key) or other failures
-  // This ensures your API keys are actually WORKING, not just configured.
-  const serviceResults: CheckResult[] = [];
-  
-  // Always run public API check (fast, no auth required - verifies internet connectivity)
-  const publicApiResult = await checkPublicAPI();
-  serviceResults.push(publicApiResult);
-  
-  // Check authenticated APIs (if not in quick mode)
-  // These verify your API keys are valid by making real authenticated requests
-  if (!quickMode) {
-    const githubApiResult = await checkGitHubAPI();
-    serviceResults.push(githubApiResult);
-  }
-  
-  summaries.push({ category: 'Service Connections', results: serviceResults });
-  
-  return summaries;
-}
-
-async function main() {
-  const args = process.argv.slice(2);
-  const jsonOutput = args.includes('--json') || args.includes('--status');
-  const quick = args.includes('--quick');
-  
-  const summaries = await runChecks(quick);
-  
-  // Add timestamps
-  summaries.forEach(summary => {
-    summary.results.forEach(result => {
-      result.timestamp = Date.now();
-    });
-  });
-  
-  if (jsonOutput) {
-    console.log(JSON.stringify({ summaries }, null, 2));
-    process.exit(0);
-  }
-  
-  console.log('\\n🔍 Preflight Check Results\\n');
-  
-  let hasErrors = false;
-  let hasWarnings = false;
-  
-  for (const summary of summaries) {
-    console.log(\`\\n📦 \${summary.category}\`);
-    for (const result of summary.results) {
-      const icon = result.status === 'ok' ? '✅' : result.status === 'warning' ? '⚠️' : '❌';
-      console.log(\`   \${icon} \${result.message}\`);
-      if (result.details) {
-        console.log(\`      \${result.details}\`);
-      }
-      if (result.helpUrl) {
-        console.log(\`      Help: \${result.helpUrl}\`);
-      }
-      
-      if (result.status === 'error') hasErrors = true;
-      if (result.status === 'warning') hasWarnings = true;
-    }
-  }
-  
-  console.log('\\n' + '='.repeat(50) + '\\n');
-  
-  if (hasErrors) {
-    console.log('❌ Some checks failed!');
-    process.exit(1);
-  } else if (hasWarnings) {
-    console.log('⚠️  All checks passed with warnings');
-    process.exit(0);
-  } else {
-    console.log('✅ All checks passed!');
-    process.exit(0);
-  }
-}
-
-main().catch(console.error);
-`
+    loadTemplate('preflight-check.ts')
   );
   
   // Create HTML dashboard
@@ -1094,6 +697,7 @@ function updatePackageJson(project: ProjectInfo) {
   packageJson.scripts['preflight:quick'] = 'tsx scripts/preflight-check.ts --quick';
   packageJson.scripts['preflight:status'] = 'tsx scripts/preflight-check.ts --json > preflight-status.json';
   packageJson.scripts['preflight:dashboard'] = 'tsx scripts/serve-dashboard.ts';
+  packageJson.scripts['preflight:verify'] = 'tsx scripts/verify-setup.ts';
   
   // Add tsx as dev dependency if not present
   if (!packageJson.devDependencies) {
@@ -1554,11 +1158,7 @@ async function main() {
   try {
     const project = detectProject();
     
-    console.log(`📦 Project Type: ${project.type}`);
-    console.log(`📦 Package Manager: ${project.packageManager}`);
-    console.log(`📦 Root: ${project.rootDir}\n`);
-    
-    // Validate preconditions
+    // Validate preconditions FIRST (before showing project info)
     try {
       validatePreconditions(project);
     } catch (error) {
@@ -1566,11 +1166,34 @@ async function main() {
       process.exit(1);
     }
     
+    console.log(`📦 Project Type: ${project.type}`);
+    console.log(`📦 Package Manager: ${project.packageManager}`);
+    console.log(`📦 Root: ${project.rootDir}\n`);
+    
     if (!project.hasPackageJson) {
       console.log('⚠️  No package.json found. Creating basic structure...');
     }
     
     createPreflightStructure(project);
+  
+  // Copy verify script (if it exists in the repo)
+  const verifyScriptPath = join(project.rootDir, 'scripts', 'verify-setup.ts');
+  if (!existsSync(verifyScriptPath)) {
+    // Try to find verify script in the preflight repo
+    const possiblePaths = [
+      join(__dirname, '..', 'scripts', 'verify-setup.ts'),
+      join(__dirname, '..', '..', 'scripts', 'verify-setup.ts'),
+    ];
+    
+    for (const verifyScriptSource of possiblePaths) {
+      if (existsSync(verifyScriptSource)) {
+        const verifyContent = readFileSync(verifyScriptSource, 'utf-8');
+        writeFileSync(verifyScriptPath, verifyContent);
+        console.log(`✅ Created verification script: scripts/verify-setup.ts`);
+        break;
+      }
+    }
+  }
   
   // Create dashboard server script
   const dashboardServerPath = join(project.rootDir, 'scripts', 'serve-dashboard.ts');

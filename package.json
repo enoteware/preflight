@@ -4,7 +4,8 @@
   "description": "Repo-agnostic preflight checks and dev server management",
   "type": "module",
   "bin": {
-    "preflight-setup": "./bin/preflight-setup.js"
+    "preflight-setup": "./bin/preflight-setup.js",
+    "preflight-install": "./bin/preflight-install.js"
   },
   "main": "src/setup.ts",
   "files": [
@@ -16,10 +17,16 @@
   ],
   "scripts": {
     "setup": "tsx src/setup.ts",
+    "install": "tsx src/install.ts",
     "build": "tsc",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "preflight": "tsx scripts/preflight-check.ts",
+    "preflight:quick": "tsx scripts/preflight-check.ts --quick",
+    "preflight:status": "tsx scripts/preflight-check.ts --json > preflight-status.json",
+    "preflight:dashboard": "tsx scripts/serve-dashboard.ts",
+    "preflight:verify": "tsx scripts/verify-setup.ts"
   },
   "keywords": [
     "preflight",
@@ -44,6 +51,7 @@
     "@typescript-eslint/parser": "^8.52.0",
     "eslint": "^9.39.2",
     "tsx": "^4.7.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "dotenv": "^16.3.1"
   }
 }

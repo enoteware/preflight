@@ -20,7 +20,7 @@
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
     }
-
+    
     .container {
       max-width: 1200px;
       margin: 0 auto;
@@ -36,17 +36,6 @@
       border: 0.5px solid rgba(0, 0, 0, 0.1);
     }
 
-    .header-top {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 24px;
-    }
-
-    .header-top > div:first-child {
-      flex: 1;
-    }
-
     h1 {
       font-size: 48px;
       font-weight: 600;
@@ -54,37 +43,6 @@
       margin-bottom: 8px;
       color: #1d1d1f;
       line-height: 1.1;
-    }
-
-    .repo-info {
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 0.5px solid rgba(0, 0, 0, 0.1);
-    }
-
-    .repo-info-item {
-      font-size: 13px;
-      color: #86868b;
-      margin-bottom: 6px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .repo-info-item strong {
-      color: #1d1d1f;
-      font-weight: 500;
-    }
-
-    .repo-info-item a {
-      color: #007aff;
-      text-decoration: none;
-      transition: color 0.2s ease;
-    }
-
-    .repo-info-item a:hover {
-      color: #0051d5;
-      text-decoration: underline;
     }
 
     .status-bar {
@@ -266,15 +224,6 @@
       margin-right: 8px;
     }
 
-    .service-logo {
-      width: 20px;
-      height: 20px;
-      margin-right: 8px;
-      flex-shrink: 0;
-      object-fit: contain;
-      border-radius: 4px;
-    }
-
     .status-icon {
       width: 20px;
       height: 20px;
@@ -383,65 +332,13 @@
       cursor: pointer;
       accent-color: #007aff;
     }
-
-    .refresh-indicator {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: #ffffff;
-      border-radius: 12px;
-      padding: 12px 16px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      border: 0.5px solid rgba(0, 0, 0, 0.1);
-      display: none;
-      align-items: center;
-      gap: 8px;
-      font-size: 13px;
-      color: #1d1d1f;
-      z-index: 1000;
-      animation: slideIn 0.2s ease;
-    }
-
-    .refresh-indicator.active {
-      display: flex;
-    }
-
-    @keyframes slideIn {
-      from {
-        opacity: 0;
-        transform: translateY(-10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .refresh-spinner {
-      width: 16px;
-      height: 16px;
-      border: 2px solid #e8e8ed;
-      border-top-color: #007aff;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
-    }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
-      <div class="header-top">
-        <div>
-          <h1>Preflight Check</h1>
-          <!-- REPO_INFO_PLACEHOLDER -->
-        </div>
-        <div class="controls">
+      <h1>Preflight Check</h1>
+      <div class="controls">
         <button class="btn-primary" onclick="refreshChecks()">
           <svg class="button-icon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M8 2V6M8 10V14M2 8H6M10 8H14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
@@ -456,11 +353,10 @@
           </svg>
           Auto-refresh
         </button>
-        </div>
       </div>
       <div class="auto-refresh">
         <input type="checkbox" id="autoRefresh" checked onchange="toggleAutoRefresh()">
-        <label for="autoRefresh">Auto-refresh every 5 minutes</label>
+        <label for="autoRefresh">Auto-refresh every 10 seconds</label>
       </div>
       <div class="last-updated" id="lastUpdated">Loading...</div>
       <div class="status-bar">
@@ -502,91 +398,16 @@
     <div id="content" class="loading">
       <div class="pulse">Loading checks...</div>
     </div>
-  </div>
-
-  <div id="refreshIndicator" class="refresh-indicator">
-    <div class="refresh-spinner"></div>
-    <span>Refreshing...</span>
+    
+    <!-- REPO_INFO_PLACEHOLDER -->
   </div>
 
   <script>
     let autoRefreshInterval = null;
 
-    // Map service names to documentation URLs
-    function getServiceDocUrl(message) {
-      const serviceMap = {
-        'GitHub API': 'https://github.com/enoteware/preflight/blob/main/docs/SERVICE_RESOURCES.md#version-control--cicd',
-        'Supabase': 'https://github.com/enoteware/preflight/blob/main/docs/SERVICE_RESOURCES.md#databases--storage',
-        'Resend': 'https://github.com/enoteware/preflight/blob/main/docs/SERVICE_RESOURCES.md#email-services',
-        'Vercel API': 'https://github.com/enoteware/preflight/blob/main/docs/SERVICE_RESOURCES.md#version-control--cicd',
-        'Klaviyo': 'https://github.com/enoteware/preflight/blob/main/docs/SERVICE_RESOURCES.md#marketing-automation',
-        'Upstash': 'https://github.com/enoteware/preflight/blob/main/docs/SERVICE_RESOURCES.md#caching--queue-services',
-        'Redis': 'https://github.com/enoteware/preflight/blob/main/docs/SERVICE_RESOURCES.md#caching--queue-services',
-        'Neon': 'https://github.com/enoteware/preflight/blob/main/docs/SERVICE_RESOURCES.md#databases--storage',
-        'Clerk': 'https://github.com/enoteware/preflight/blob/main/docs/SERVICE_RESOURCES.md#authentication--user-management',
-        'Stack Auth': 'https://github.com/enoteware/preflight/blob/main/docs/SERVICE_RESOURCES.md#authentication--user-management',
-        'Auth0': 'https://github.com/enoteware/preflight/blob/main/docs/SERVICE_RESOURCES.md#authentication--user-management',
-        'Stripe': 'https://github.com/enoteware/preflight/blob/main/docs/SERVICE_RESOURCES.md#payment-processing',
-        'YouTube API': 'https://github.com/enoteware/preflight/blob/main/docs/SERVICE_RESOURCES.md#media--content-apis',
-      };
-      
-      // Try to match service name from message
-      for (const [service, url] of Object.entries(serviceMap)) {
-        if (message.includes(service)) {
-          return url;
-        }
-      }
-      
-      // Fallback: return general service resources link
-      if (message.toLowerCase().includes('api') || message.toLowerCase().includes('service')) {
-        return 'https://github.com/enoteware/preflight/blob/main/docs/SERVICE_RESOURCES.md';
-      }
-      
-      return null;
-    }
-
-    // Map service names to logo filenames
-    const SERVICE_LOGO_MAP = {
-      'GitHub API': 'github.svg',
-      'Supabase': 'supabase.svg',
-      'Resend': 'resend.svg',
-      'Vercel API': 'vercel.svg',
-      'Klaviyo': 'klaviyo.svg',
-      'Upstash': 'upstash.svg',
-      'Redis': 'redis.svg',
-      'Neon': 'neon.svg',
-      'Clerk': 'clerk.svg',
-      'Stack Auth': 'stack-auth.svg',
-      'Auth0': 'auth0.svg',
-      'Stripe': 'stripe.svg',
-      'PayPal': 'paypal.svg',
-      'Trello': 'trello.svg',
-      'YouTube API': 'youtube.svg',
-    };
-
-    // Get logo URL for a service
-    function getServiceLogo(message) {
-      for (const [serviceName, logoFile] of Object.entries(SERVICE_LOGO_MAP)) {
-        if (message.includes(serviceName)) {
-          return `/logos/${logoFile}`;
-        }
-      }
-      return null;
-    }
-
     async function refreshChecks() {
       const content = document.getElementById('content');
-      const refreshIndicator = document.getElementById('refreshIndicator');
-      const wasLoading = content.classList.contains('loading');
-      
-      // Show refresh indicator
-      refreshIndicator.classList.add('active');
-      
-      // Only show loading state if content is empty (first load)
-      if (wasLoading || content.innerHTML.trim() === '' || content.innerHTML.includes('Loading checks')) {
-        content.innerHTML = '<div class="loading pulse">Running checks...</div>';
-        content.classList.add('loading');
-      }
+      content.innerHTML = '<div class="loading pulse">Running checks...</div>';
 
       try {
         // Run preflight check and get JSON output
@@ -603,37 +424,27 @@
 
         updateDashboard(data);
         updateLastUpdated();
-        content.classList.remove('loading');
       } catch (error) {
-        // Only replace content on error if it was empty
-        if (wasLoading || content.innerHTML.trim() === '' || content.innerHTML.includes('Loading checks')) {
-          content.innerHTML = `
-            <div class="category">
-              <h2>Error</h2>
-              <div class="check-item error">
-                <div class="check-header">
-                  <svg class="check-icon" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M6 3V6M6 9H6.01" stroke="#ff453a" stroke-width="1.5" stroke-linecap="round"/>
-                    <path d="M6 1C3.23858 1 1 3.23858 1 6C1 8.76142 3.23858 11 6 11C8.76142 11 11 8.76142 11 6C11 3.23858 8.76142 1 6 1Z" stroke="#ff453a" stroke-width="1.5" fill="none"/>
-                  </svg>
-                  <span class="check-message">Failed to load checks</span>
-                </div>
-                <div class="check-details">${error.message}</div>
-                <div class="check-details" style="margin-top: 10px;">
-                  <strong>To use this dashboard:</strong><br>
-                  1. Run: <code>npx tsx scripts/preflight-check.ts --json > preflight-status.json</code><br>
-                  2. Or start the dashboard server: <code>npx tsx scripts/serve-dashboard.ts</code>
-                </div>
+        content.innerHTML = `
+          <div class="category">
+            <h2>Error</h2>
+            <div class="check-item error">
+              <div class="check-header">
+                <svg class="check-icon" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M6 3V6M6 9H6.01" stroke="#ff453a" stroke-width="1.5" stroke-linecap="round"/>
+                  <path d="M6 1C3.23858 1 1 3.23858 1 6C1 8.76142 3.23858 11 6 11C8.76142 11 11 8.76142 11 6C11 3.23858 8.76142 1 6 1Z" stroke="#ff453a" stroke-width="1.5" fill="none"/>
+                </svg>
+                <span class="check-message">Failed to load checks</span>
+              </div>
+              <div class="check-details">${error.message}</div>
+              <div class="check-details" style="margin-top: 10px;">
+                <strong>To use this dashboard:</strong><br>
+                1. Run: <code>npx tsx scripts/preflight-check.ts --json > preflight-status.json</code><br>
+                2. Or start the dashboard server: <code>npx tsx scripts/serve-dashboard.ts</code>
               </div>
             </div>
-          `;
-        }
-        content.classList.remove('loading');
-      } finally {
-        // Hide refresh indicator after a short delay
-        setTimeout(() => {
-          refreshIndicator.classList.remove('active');
-        }, 300);
+          </div>
+        `;
       }
     }
 
@@ -668,34 +479,16 @@
           
           const latency = result.latency ? ` <span class="check-latency">(${result.latency}ms)</span>` : '';
           
-          // Add service logo for Service Connections category
-          const logoUrl = summary.category === 'Service Connections' ? getServiceLogo(result.message) : null;
-          const logoHtml = logoUrl ? `<img src="${logoUrl}" alt="" class="service-logo" onerror="this.style.display='none'"/>` : '';
-          
           html += `
             <div class="check-item ${result.status}">
               <div class="check-header">
                 ${statusIcon}
-                ${logoHtml}
                 <span class="check-message">${result.message}</span>
                 ${latency}
               </div>`;
 
           if (result.details) {
             html += `<div class="check-details">${result.details}</div>`;
-          }
-
-          // Add service documentation link for Service Connections
-          if (summary.category === 'Service Connections') {
-            const serviceDocUrl = getServiceDocUrl(result.message);
-            if (serviceDocUrl) {
-              html += `<div class="check-help"><a href="${serviceDocUrl}" target="_blank">
-                <svg style="width: 14px; height: 14px; vertical-align: middle; margin-right: 4px;" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M8 12H8.01M8 8C8 6.34315 9.34315 5 11 5C12.6569 5 14 6.34315 14 8C14 9.65685 12.6569 11 11 11H8V8Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/>
-                  <path d="M8 1C4.13401 1 1 4.13401 1 8C1 11.866 4.13401 15 8 15C11.866 15 15 11.866 15 8C15 4.13401 11.866 1 8 1Z" stroke="currentColor" stroke-width="1.5" fill="none"/>
-                </svg>
-                Documentation</a></div>`;
-            }
           }
 
           if (result.helpUrl) {
@@ -715,7 +508,6 @@
 
       html += '</div>';
       content.innerHTML = html;
-      content.classList.remove('loading');
 
       // Update status counts
       let total = 0, ok = 0, warnings = 0, errors = 0;
@@ -744,7 +536,7 @@
       const checkbox = document.getElementById('autoRefresh');
       if (checkbox.checked) {
         if (autoRefreshInterval) clearInterval(autoRefreshInterval);
-        autoRefreshInterval = setInterval(refreshChecks, 300000); // 5 minutes
+        autoRefreshInterval = setInterval(refreshChecks, 10000);
       } else {
         if (autoRefreshInterval) {
           clearInterval(autoRefreshInterval);

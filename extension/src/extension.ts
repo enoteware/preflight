@@ -21,6 +21,9 @@ let dashboardServerProcess: ChildProcess | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
   console.log('Preflight Status extension activated');
+  
+  // Show activation message
+  vscode.window.showInformationMessage('Preflight Status extension activated!');
 
   // Initialize status bar
   statusBar = new PreflightStatusBar();
@@ -30,9 +33,16 @@ export function activate(context: vscode.ExtensionContext) {
   checksProvider = new PreflightTreeDataProvider('checks');
   servicesProvider = new PreflightTreeDataProvider('services');
 
-  // Register tree data providers
-  vscode.window.registerTreeDataProvider('preflightChecks', checksProvider);
-  vscode.window.registerTreeDataProvider('preflightServices', servicesProvider);
+  console.log('Registering tree data providers...');
+  
+  // Register tree data providers (must be added to subscriptions)
+  const checksDisposable = vscode.window.registerTreeDataProvider('preflightChecks', checksProvider);
+  const servicesDisposable = vscode.window.registerTreeDataProvider('preflightServices', servicesProvider);
+  
+  context.subscriptions.push(checksDisposable);
+  context.subscriptions.push(servicesDisposable);
+  
+  console.log('Tree data providers registered successfully');
 
   // Register commands
   context.subscriptions.push(
@@ -147,12 +157,20 @@ function startAutoRefresh(intervalSeconds: number) {
 async function refreshChecks() {
   // Prevent overlapping refresh calls
   if (refreshInProgress) {
+    console.log('Refresh already in progress, skipping...');
     return;
   }
   
   refreshInProgress = true;
+  console.log('Starting preflight checks refresh...');
+  
   try {
     const results = await runPreflightChecks();
+    console.log('Preflight checks completed:', {
+      checks: results.checks.length,
+      services: results.services.length,
+      summary: results.summary
+    });
 
     // Check for errors in the results (runPreflightChecks returns error results, doesn't throw)
     if (results.summary.errors > 0) {
@@ -167,8 +185,10 @@ async function refreshChecks() {
     }
 
     // Update tree views
+    console.log('Updating tree views...');
     checksProvider.updateChecks(results.checks);
     servicesProvider.updateChecks(results.services);
+    console.log('Tree views updated');
 
     // Update status bar
     statusBar.updateStatus(results.summary);
@@ -177,8 +197,17 @@ async function refreshChecks() {
     console.error('Error refreshing checks:', error);
     const errorMessage = error instanceof Error ? error.message : String(error);
     vscode.window.showErrorMessage(`Preflight check failed: ${errorMessage}`);
+    
+    // Show error in tree view
+    checksProvider.updateChecks([{
+      status: 'error',
+      message: 'Failed to run checks',
+      details: errorMessage,
+      timestamp: Date.now()
+    }]);
   } finally {
     refreshInProgress = false;
+    console.log('Refresh complete');
   }
 }
 

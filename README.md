@@ -8,11 +8,28 @@ Repo-agnostic preflight checks and dev server management toolkit.
 
 ## For AI Agents (Claude/Cursor)
 
-**IMPORTANT:** When a user requests preflight setup, you must:
-1. Fetch/clone this repository from GitHub
-2. Set up scripts in the user's project
-3. Install and activate the VS Code extension
-4. Verify everything is working
+**QUICK START:** When a user requests preflight setup or update, use the single-command installer:
+
+```bash
+# Navigate to the user's project directory
+cd /path/to/user/project
+
+# Install Preflight (handles everything automatically)
+npx @enoteware/preflight@latest install --with-extension
+```
+
+This single command will:
+- ✅ Detect if Preflight is already installed (and update if needed)
+- ✅ Set up all scripts and validators in the project
+- ✅ Build and install the VS Code extension
+- ✅ Handle backward compatibility (migrates old installations automatically)
+- ✅ Preserve custom service checks
+
+**For updates:** The install command automatically detects and updates existing installations. If the user has an old installation, it will:
+- Detect the old structure
+- Run migration automatically
+- Create backup files for safety
+- Preserve custom service checks
 
 **When troubleshooting check failures, see [docs/AGENT_INSTRUCTIONS.md](docs/AGENT_INSTRUCTIONS.md) for:**
 - How to interpret check results (Configuration vs Service Connections)
@@ -20,7 +37,7 @@ Repo-agnostic preflight checks and dev server management toolkit.
 - Step-by-step troubleshooting flows
 - Service-specific fix instructions
 
-See detailed steps below.
+**Manual setup (if needed):** See detailed steps below for manual installation.
 
 ## ⚠️ ALWAYS Pull Latest Code
 
@@ -48,7 +65,9 @@ cd preflight
 - ✅ Extension updates and fixes
 - ✅ New service integrations
 
-When setting up preflight for a user, follow these steps:
+## Manual Setup (Alternative Method)
+
+If you need to set up Preflight manually (e.g., for debugging or custom workflows):
 
 ### 1. Fetch/Update the Repository
 
@@ -66,8 +85,6 @@ git pull origin main
 # VERIFY you have latest
 git log --oneline -1
 # Compare this SHA with: https://github.com/enoteware/preflight/commits/main
-
-# Note: Remember the path where you cloned it - you'll need it for steps 2 and 3
 ```
 
 ### 2. Set Up Preflight Scripts in User's Project
@@ -80,8 +97,8 @@ cd /path/to/user/project
 # Replace /tmp/preflight-setup with the actual path where you cloned the repo
 npx tsx /tmp/preflight-setup/src/setup.ts
 
-# Alternative: Use the npm package (if published)
-# npx @enoteware/preflight setup
+# For existing installations, use --update flag:
+# npx tsx /tmp/preflight-setup/src/setup.ts --update
 ```
 
 This will:
@@ -131,7 +148,7 @@ Tell the user to reload their VS Code/Cursor window:
 - Press `Cmd+Shift+P` (Mac) or `Ctrl+Shift+P` (Windows/Linux)
 - Type "Reload Window" and press Enter
 
-### 5. Verify Installation & Latest Version
+### 5. Verify Installation
 
 Check that:
 - ✅ `scripts/preflight-check.ts` exists
@@ -163,60 +180,59 @@ ls extension/resources/logos/*.svg 2>/dev/null | wc -l
 
 ## Keeping Preflight Updated
 
-**After initial setup**, periodically update to get latest features:
-
-### Update Dashboard & Scripts
+**Easiest way to update:** Just run the install command again - it automatically handles updates!
 
 ```bash
-# In your project directory where preflight is installed
+# In your project directory
 cd /path/to/your/project
 
-# Pull latest from preflight repo
-cd /tmp/preflight-setup  # or wherever you cloned it
-git pull origin main
-
-# Re-run setup to update scripts and dashboard
-npx tsx /tmp/preflight-setup/src/setup.ts
-
-# This updates:
-# - preflight-dashboard.html (gets latest logos, features)
-# - scripts/preflight-check.ts (latest check logic)
-# - scripts/serve-dashboard.ts (latest server features)
+# Run install again - it will detect and update existing installation
+npx @enoteware/preflight@latest install --with-extension
 ```
 
-### Update Extension
+This will:
+- ✅ Detect existing installation
+- ✅ Update scripts and dashboard to latest version
+- ✅ Rebuild and update the extension
+- ✅ Preserve your custom service checks
+- ✅ Create backups if needed
+
+### Manual Update (Alternative)
+
+If you prefer to update manually:
 
 ```bash
-# Navigate to preflight repo
-cd /tmp/preflight-setup
-git pull origin main
+# Update scripts and dashboard
+cd /path/to/your/project
+npx tsx /path/to/preflight/src/setup.ts
 
-# Rebuild and reinstall extension
-cd extension
-npm install
-npm run compile
-npm run package
-
-# Reinstall (--force updates existing installation)
+# Update extension
+cd /path/to/preflight/extension
+npm install && npm run compile && npm run package
 code --install-extension preflight-status-*.vsix --force
-# or for Cursor:
-cursor --install-extension preflight-status-*.vsix --force
-
-# Reload IDE window (Cmd+Shift+P → "Reload Window")
-```
-
-### Quick Update Check
-
-```bash
-# See what's new in the latest version
-cd /tmp/preflight-setup
-git log --oneline -5  # See last 5 commits
-git pull origin main  # Pull latest
 ```
 
 **Tip:** Check https://github.com/enoteware/preflight/commits/main regularly for updates.
 
 ## Installation
+
+### Quick Install (Recommended)
+
+```bash
+# Navigate to your project directory
+cd /path/to/your/project
+
+# Install Preflight (handles everything automatically)
+npx @enoteware/preflight@latest install --with-extension
+```
+
+This single command will:
+- Set up all Preflight scripts in your project
+- Build and install the VS Code extension
+- Handle updates if Preflight is already installed
+- Preserve your custom service checks
+
+### Alternative: Manual Installation
 
 ```bash
 # Install globally
@@ -228,9 +244,23 @@ npx @enoteware/preflight setup
 
 ## Updating Existing Installations
 
-If you set up Preflight before version 1.1.0, you'll need to update to the new structure that separates **Configuration** checks from **Service Connections**.
+**The install command automatically handles updates!** Just run:
 
-### Quick Update
+```bash
+npx @enoteware/preflight@latest install --with-extension
+```
+
+The installer will:
+- ✅ Detect if Preflight is already installed
+- ✅ Check if it needs updating (old structure → new structure)
+- ✅ Run migration automatically if needed
+- ✅ Create backup files for safety
+- ✅ Preserve your custom service checks
+- ✅ Update the extension to latest version
+
+### Manual Update (if needed)
+
+If you set up Preflight before version 1.1.0, you can manually update:
 
 ```bash
 # Automatic update (recommended)
@@ -245,8 +275,6 @@ This will:
 - Update your `services.ts` to skip checks when env vars are missing
 - Create backups of your existing files (`.backup` extension)
 - Preserve your custom env vars and service checks
-
-### Manual Update
 
 See [MIGRATION.md](MIGRATION.md) for detailed migration instructions.
 
@@ -266,6 +294,9 @@ npx @enoteware/preflight setup /path/to/project
 
 # Update existing installation (v1.1.0+)
 npx @enoteware/preflight update
+
+# Or use the new install command (recommended - handles everything)
+npx @enoteware/preflight install --with-extension
 ```
 
 ## Features
