@@ -224,42 +224,15 @@ const server = createServer(async (req, res) => {
             ${info.description}
           </div>` : '';
       
+      const githubLinkHtml = info.githubUrl 
+        ? `<div class="repo-info-item"><strong>Repository:</strong> <a href="${info.githubUrl}" target="_blank">${info.githubUrl}</a></div>`
+        : '';
+      
       const infoHtml = [
-        '<div class="repo-info" style="margin-top: 24px; padding-top: 24px; border-top: 0.5px solid rgba(0, 0, 0, 0.1);">',
-        `<div style="font-size: 13px; color: #86868b; margin-bottom: 8px;">`,
-        `<strong style="color: #1d1d1f;">Project:</strong> ${info.name}${versionText}`,
-        '</div>',
-        githubLink,
-        descriptionText,
-        `<div style="font-size: 13px; color: #86868b; margin-bottom: 12px;">`,
-        `<strong style="color: #1d1d1f;">Server:</strong> Running on port ${serverPort}`,
-        '</div>',
-        '<div style="font-size: 13px; color: #86868b;">',
-        '<strong style="color: #1d1d1f;">Documentation:</strong>',
-        '<div style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 12px;">',
-        '<a href="https://github.com/enoteware/preflight/blob/main/docs/SERVICE_RESOURCES.md" target="_blank" style="color: #007aff; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">',
-        '<svg style="width: 14px; height: 14px;" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">',
-        '<path d="M8 12H8.01M8 8C8 6.34315 9.34315 5 11 5C12.6569 5 14 6.34315 14 8C14 9.65685 12.6569 11 11 11H8V8Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/>',
-        '<path d="M8 1C4.13401 1 1 4.13401 1 8C1 11.866 4.13401 15 8 15C11.866 15 15 11.866 15 8C15 4.13401 11.866 1 8 1Z" stroke="currentColor" stroke-width="1.5" fill="none"/>',
-        '</svg>',
-        'Service Resources',
-        '</a>',
-        '<a href="https://github.com/enoteware/preflight/blob/main/docs/COMMON_SERVICES.md" target="_blank" style="color: #007aff; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">',
-        '<svg style="width: 14px; height: 14px;" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">',
-        '<path d="M8 12H8.01M8 8C8 6.34315 9.34315 5 11 5C12.6569 5 14 6.34315 14 8C14 9.65685 12.6569 11 11 11H8V8Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/>',
-        '<path d="M8 1C4.13401 1 1 4.13401 1 8C1 11.866 4.13401 15 8 15C11.866 15 15 11.866 15 8C15 4.13401 11.866 1 8 1Z" stroke="currentColor" stroke-width="1.5" fill="none"/>',
-        '</svg>',
-        'Common Services',
-        '</a>',
-        '<a href="https://github.com/enoteware/preflight/blob/main/docs/AGENT_INSTRUCTIONS.md" target="_blank" style="color: #007aff; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">',
-        '<svg style="width: 14px; height: 14px;" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">',
-        '<path d="M8 12H8.01M8 8C8 6.34315 9.34315 5 11 5C12.6569 5 14 6.34315 14 8C14 9.65685 12.6569 11 11 11H8V8Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"/>',
-        '<path d="M8 1C4.13401 1 1 4.13401 1 8C1 11.866 4.13401 15 8 15C11.866 15 15 11.866 15 8C15 4.13401 11.866 1 8 1Z" stroke="currentColor" stroke-width="1.5" fill="none"/>',
-        '</svg>',
-        'Agent Instructions',
-        '</a>',
-        '</div>',
-        '</div>',
+        '<div class="repo-info">',
+        `<div class="repo-info-item"><strong>Project:</strong> ${info.name}${versionText}</div>`,
+        githubLinkHtml,
+        `<div class="repo-info-item"><strong>Server:</strong> Port ${serverPort}</div>`,
         '</div>',
       ].join('\n');
       content = content.replace('<!-- REPO_INFO_PLACEHOLDER -->', infoHtml);
