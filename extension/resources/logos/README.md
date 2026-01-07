@@ -2,26 +2,35 @@
 
 This directory contains SVG logos for various services displayed in the Preflight dashboard.
 
-## Downloading Logos
+**Logos are included in the repository** - no download required! They're ready to use out-of-the-box.
 
-Logos are downloaded from [Brandfetch](https://www.brandfetch.com/) using their API.
+## Updating/Re-downloading Logos (Optional)
 
-### Setup
+If you want to update logos, you have two options:
+
+### Option 1: Public CDN (Recommended - No API Key Required)
+
+```bash
+npx tsx scripts/download-logos-public.ts
+```
+
+This downloads logos from public CDN sources like SimpleIcons.
+
+### Option 2: Brandfetch API (Requires Free API Key)
 
 1. Get a free API key from [Brandfetch](https://www.brandfetch.com/api)
 2. Add it to your `.env.local` file:
    ```bash
    BRANDFETCH_API_KEY=your_key_here
    ```
+3. Run the download script:
+   ```bash
+   npx tsx scripts/download-logos.ts
+   ```
 
-### Download Logos
+## Included Services
 
-```bash
-# From the project root
-npx tsx scripts/download-logos.ts
-```
-
-This will download SVG logos for all supported services:
+The repository includes SVG logos for:
 - GitHub
 - Supabase
 - Resend

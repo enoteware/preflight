@@ -1,35 +1,57 @@
 # Quick Start: Service Logos
 
-This guide gets you up and running with service logos in the Preflight dashboard in under 5 minutes.
+Service logos are **already included** in the repository! No setup required.
 
-## Prerequisites
+## What You Get Out-of-the-Box
 
-- Node.js 18+ installed
-- Preflight dashboard set up (`preflight-dashboard.html` exists)
+The Preflight dashboard includes pre-downloaded SVG logos for 13 popular services:
+- ✅ GitHub
+- ✅ Supabase
+- ✅ Resend
+- ✅ Vercel
+- ✅ Klaviyo
+- ✅ Upstash
+- ✅ Redis
+- ✅ Neon
+- ✅ Clerk
+- ✅ Stack Auth
+- ✅ Auth0
+- ✅ Stripe
+- ✅ YouTube
 
-## Steps
+## Quick Start (30 seconds)
 
-### 1. Get Brandfetch API Key (2 minutes)
-
-1. Go to https://www.brandfetch.com/api
-2. Sign up (free plan available)
-3. Copy your API key
-
-### 2. Configure Environment (30 seconds)
-
-Create or edit `.env.local` in your project root:
-
-```bash
-BRANDFETCH_API_KEY=your_api_key_here
-```
-
-### 3. Download Logos (1 minute)
-
-Run the download script:
+### Start the Dashboard
 
 ```bash
-npx tsx scripts/download-logos.ts
+npx tsx scripts/serve-dashboard.ts
 ```
+
+Then open http://localhost:8080 - logos will display automatically! 🎉
+
+## Updating Logos (Optional)
+
+If you want to refresh logos or add new ones:
+
+### Option 1: Download from Public CDN (Recommended)
+
+```bash
+npx tsx scripts/download-logos-public.ts
+```
+
+This uses free public CDN sources - no API key required!
+
+### Option 2: Download from Brandfetch (Requires API Key)
+
+1. Get API key from https://www.brandfetch.com/api
+2. Add to `.env.local`:
+   ```bash
+   BRANDFETCH_API_KEY=your_api_key_here
+   ```
+3. Run:
+   ```bash
+   npx tsx scripts/download-logos.ts
+   ```
 
 You should see output like:
 
@@ -56,17 +78,6 @@ You should see output like:
 📁 Logos saved to: extension/resources/logos/
 ```
 
-### 4. Start Dashboard (30 seconds)
-
-```bash
-npx tsx scripts/serve-dashboard.ts
-```
-
-### 5. View Logos (30 seconds)
-
-Open http://localhost:8080 in your browser.
-
-Service checks now display with branded logos! 🎉
 
 ## What You Get
 
@@ -82,9 +93,9 @@ After (with logos):
    Logged in as: username
 ```
 
-## Supported Services
+## Included Logos
 
-Logos are automatically downloaded for:
+Logos are included in the repo for:
 - GitHub
 - Supabase  
 - Resend
@@ -101,22 +112,16 @@ Logos are automatically downloaded for:
 
 ## Troubleshooting
 
-### "BRANDFETCH_API_KEY not set"
-
-Make sure `.env.local` exists in your project root with:
-```bash
-BRANDFETCH_API_KEY=your_actual_key
-```
-
-### "No brand found for [service]"
-
-Some services may not be in Brandfetch's database. The dashboard will work fine without their logos.
-
 ### Logos don't appear in dashboard
 
 Make sure you're:
 1. Running the dashboard server (`npx tsx scripts/serve-dashboard.ts`)
 2. NOT opening the HTML file directly (logos need the server to load)
+3. Checking the browser console for any 404 errors
+
+### Want to add a custom logo?
+
+Simply add your SVG file to `extension/resources/logos/[service-name].svg` and update the `SERVICE_LOGO_MAP` in `preflight-dashboard.html`
 
 ## Next Steps
 

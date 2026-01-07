@@ -7,8 +7,31 @@
  *   Or add BRANDFETCH_API_KEY to your .env.local file
  */
 
-import { writeFileSync, mkdirSync, existsSync } from 'fs';
+import { writeFileSync, mkdirSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
+
+// Load environment variables from .env.local if it exists
+const envLocalPath = join(process.cwd(), '.env.local');
+if (existsSync(envLocalPath)) {
+  try {
+    const envContent = readFileSync(envLocalPath, 'utf-8');
+    const lines = envContent.split('\n');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith('#')) {
+        const [key, ...valueParts] = trimmed.split('=');
+        if (key && valueParts.length > 0) {
+          const value = valueParts.join('=').replace(/^["']|["']$/g, '');
+          if (!process.env[key]) {
+            process.env[key] = value;
+          }
+        }
+      }
+    }
+  } catch (error) {
+    // Silently fail if we can't read .env.local
+  }
+}
 
 // Service domain mappings for Brandfetch
 const SERVICES = {
